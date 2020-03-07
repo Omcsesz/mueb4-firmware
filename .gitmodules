@@ -1,3 +1,4 @@
 [submodule "Drivers/ioLibrary_Driver"]
 	path = Drivers/ioLibrary_Driver
-	url = https://github.com/kissadamfkut/ioLibrary_Driver.git
+	url = https://git.sch.bme.hu/matrix-group/ioLibrary_Driver
+	branch = master
