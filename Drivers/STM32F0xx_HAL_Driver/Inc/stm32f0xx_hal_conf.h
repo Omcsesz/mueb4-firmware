@@ -1,1 +1,0 @@
-../../../Inc/stm32f0xx_hal_conf.h
