@@ -110,7 +110,7 @@ namespace{
 
         toogle_gpio(LED_COMM);
 
-        uint8_t buff[314]; //TODO exception handling
+        uint8_t buff[1500] = {}; //TODO exception handling
 
         uint8_t svr_addr[6];
         uint16_t  svr_port;
@@ -124,18 +124,22 @@ namespace{
         */ //TODO check this code
 
 
-        if(buff[0] != 0x01)
+        if(buff[0] != 0x01 && buff[0] != 0x02)
             return;
 
-        uint8_t pn_expected = ( ( (18-szint)*16 + (szoba-5)*2  )/52  );
-        uint8_t pn          = buff[1] - 1;
-
-        if(pn != pn_expected)
-            return;
-
-        uint32_t base_offset = (((18-szint)*8 + (szoba-5))%26)* 12 + 2;
+        uint32_t base_offset = 0;
         size_t  running_offset = 0;
+        if(buff[0] == 0x01) {
+			uint8_t pn_expected = ( ( (18-szint)*16 + (szoba-5)*2  )/52  );
+			uint8_t pn          = buff[1];
 
+			if(pn != pn_expected)
+				return;
+
+			base_offset = (((18-szint)*8 + (szoba-5))%26)* 12 + 2;
+        } else if(buff[0] == 0x02) {
+        	base_offset = (((18-szint)*8 + (szoba-5)))* 12 + 2;
+        }
         //----------------------------------
 
         auto&  first_window = status::getWindow(LEFT);
