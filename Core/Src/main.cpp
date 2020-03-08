@@ -27,13 +27,14 @@ int main(void){
 		if(status::if_internal_animation_is_on)
 			internal_animation::step_anim();
 
-		inetwork.step_network();
-
 		windows::left_window.step_state();
 		windows::right_window.step_state();
 
 		windows::left_window.update_image();
 		windows::right_window.update_image();
+
+		// DO NOT MOVE THIS LINE
+		inetwork.step_network();
 
 		if(LL_GPIO_IsInputPinSet(USER_INPUT_BUTTON_GPIO_Port, USER_INPUT_BUTTON_Pin)){
 			//TODO do sg
