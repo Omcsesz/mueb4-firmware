@@ -127,8 +127,14 @@ namespace{
         if(buff[0] != 0x01 && buff[0] != 0x02)
             return;
 
+        auto&  first_window = status::getWindow(LEFT);
+		auto& second_window = status::getWindow(RIGHT);
+
+		uint8_t r, g, b;
+
         uint32_t base_offset = 0;
         size_t  running_offset = 0;
+
         if(buff[0] == 0x01) {
 			uint8_t pn_expected = ( ( (18-szint)*16 + (szoba-5)*2  )/52  );
 			uint8_t pn          = buff[1];
@@ -137,57 +143,106 @@ namespace{
 				return;
 
 			base_offset = (((18-szint)*8 + (szoba-5))%26)* 12 + 2;
+
+	        //----------------------------------
+
+	        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        first_window.pixels[0].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        first_window.pixels[1].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        first_window.pixels[2].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        first_window.pixels[3].set(r, g, b);
+
+	        //---------------------------------
+
+	        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        second_window.pixels[0].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        second_window.pixels[1].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        second_window.pixels[2].set(r, g, b);
+
+	        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+	        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+	        second_window.pixels[3].set(r, g, b);
         } else if(buff[0] == 0x02) {
-        	base_offset = (((18-szint)*8 + (szoba-5)))* 12 + 2;
+        	/* Read compressed pixels row wise from frame buffer using 2x2 window
+        	 * 2x2 window position is based on room index
+        	 * Data can be read as a 16x26 2D array
+        	 * room row * 32 vertical unit
+        	 * room column * 2 horizontal unit
+        	 * 3 byte per unit
+        	 * 2 byte packet header
+        	 */
+        	base_offset = ((18-szint) * 32 + (szoba-5) * 2) * 3 + 2;
+
+			r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			first_window.pixels[0].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			first_window.pixels[1].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			second_window.pixels[0].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			second_window.pixels[1].set(r, g, b);
+
+			//---------------------------------
+
+			// Byte per row = 8 room per row * 6 byte per window row
+			running_offset = 48;
+
+			r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			first_window.pixels[2].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			first_window.pixels[3].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			second_window.pixels[2].set(r, g, b);
+
+			r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
+			b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
+			second_window.pixels[3].set(r, g, b);
         }
-        //----------------------------------
-
-        auto&  first_window = status::getWindow(LEFT);
-        auto& second_window = status::getWindow(RIGHT);
-        
-        uint8_t r, g, b;
-
-        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        first_window.pixels[0].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        first_window.pixels[1].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        first_window.pixels[2].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        first_window.pixels[3].set(r, g, b);
-
-        //---------------------------------
-
-        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        second_window.pixels[0].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        second_window.pixels[1].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        g = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        b = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        second_window.pixels[2].set(r, g, b);
-
-        r = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        g = (buff[ (base_offset+running_offset)  ]  & 0xf0);
-        b = (buff[ (base_offset+running_offset++)]  & 0x0f) << 5;
-        second_window.pixels[3].set(r, g, b);
     }
     
     void cs_sel() {
