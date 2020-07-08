@@ -136,12 +136,26 @@ namespace{
         size_t  running_offset = 0;
 
         if(buff[0] == 0x01) {
+        	/* Read compressed pixels window wise from frame buffer
+        	 * Data can be read as a 32x26 divided 2D array
+        	 * One frame is divided into 4 packets
+        	 * room row * 16(8 room per row * 2 pixel horizontally)
+        	 * room column * 2 pixel vertically
+        	 * 52 window per packet
+        	 */
 			uint8_t pn_expected = ( ( (18-szint)*16 + (szoba-5)*2  )/52  );
 			uint8_t pn          = buff[1];
 
 			if(pn != pn_expected)
 				return;
 
+			/* Calculate frame buffer offset from room index
+			 * room row * room per row
+			 * room column
+			 * 26 room per packet(2 window per room, 52 / 2)
+			 * 12 byte per window
+			 * 2 byte packet header
+			 */
 			base_offset = (((18-szint)*8 + (szoba-5))%26)* 12 + 2;
 
 	        //----------------------------------
