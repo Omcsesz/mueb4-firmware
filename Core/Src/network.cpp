@@ -299,13 +299,11 @@ size_t create_status_string() {
                  "anim_source: %#x\n"
                  "telemetry_comm_buff: %#x\n"
                  "frame_ether_buff: %#x\n"
-                 "dhcp_lease_time: %lu\n"
-                 "dhcp_reamining_lease_time: %lu\n"
                  "SEM forever\n",
                  mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
                  netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
                  status::if_internal_animation_is_on, getSn_RX_RSR(1),
-                 getSn_RX_RSR(2), getDHCPLeasetime(), getDHCPTimeBeforeLease());
+                 getSn_RX_RSR(2));
 
   return (ret >= 0) ? ret : 1;
 }
