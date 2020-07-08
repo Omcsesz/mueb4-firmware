@@ -158,3 +158,4 @@ FirmwareUpdate/
 .kdev4
 *.kdev4
 mx.scratch
+.mxproject
