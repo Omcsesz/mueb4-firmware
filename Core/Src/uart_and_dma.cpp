@@ -1,23 +1,22 @@
-#include "system_init.hpp"
-#include "stm32f0xx_ll_dma.h"
-#include "stm32f0xx_ll_gpio.h"
 #include <stm32f0xx_ll_bus.h>
 #include <stm32f0xx_ll_usart.h>
 
-/* USART1 init function */
-static void MX_USART1_UART_Init(void)
-{
+#include "stm32f0xx_ll_dma.h"
+#include "stm32f0xx_ll_gpio.h"
+#include "system_init.hpp"
 
+/* USART1 init function */
+static void MX_USART1_UART_Init(void) {
   LL_USART_InitTypeDef USART_InitStruct;
 
   LL_GPIO_InitTypeDef GPIO_InitStruct;
 
   /* Peripheral clock enable */
   LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_USART1);
-  
-  /**USART1 GPIO Configuration  
+
+  /**USART1 GPIO Configuration
   PA9   ------> USART1_TX
-  PA10   ------> USART1_RX 
+  PA10   ------> USART1_RX
   */
   GPIO_InitStruct.Pin = LL_GPIO_PIN_9;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
@@ -36,9 +35,10 @@ static void MX_USART1_UART_Init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USART1 DMA Init */
-  
+
   /* USART1_TX Init */
-  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_2, LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_2,
+                                  LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
 
   LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_2, LL_DMA_PRIORITY_LOW);
 
@@ -68,23 +68,20 @@ static void MX_USART1_UART_Init(void)
   LL_USART_ConfigAsyncMode(USART1);
 
   LL_USART_Enable(USART1);
-
 }
 
 /* USART2 init function */
-static void MX_USART2_UART_Init(void)
-{
-
+static void MX_USART2_UART_Init(void) {
   LL_USART_InitTypeDef USART_InitStruct;
 
   LL_GPIO_InitTypeDef GPIO_InitStruct;
 
   /* Peripheral clock enable */
   LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_USART2);
-  
-  /**USART2 GPIO Configuration  
+
+  /**USART2 GPIO Configuration
   PA2   ------> USART2_TX
-  PA3   ------> USART2_RX 
+  PA3   ------> USART2_RX
   */
   GPIO_InitStruct.Pin = LL_GPIO_PIN_2;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
@@ -103,9 +100,10 @@ static void MX_USART2_UART_Init(void)
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USART2 DMA Init */
-  
+
   /* USART2_TX Init */
-  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_4, LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
+  LL_DMA_SetDataTransferDirection(DMA1, LL_DMA_CHANNEL_4,
+                                  LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
 
   LL_DMA_SetChannelPriorityLevel(DMA1, LL_DMA_CHANNEL_4, LL_DMA_PRIORITY_LOW);
 
@@ -135,14 +133,12 @@ static void MX_USART2_UART_Init(void)
   LL_USART_ConfigAsyncMode(USART2);
 
   LL_USART_Enable(USART2);
-
 }
 
-/** 
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void) 
-{
+/**
+ * Enable DMA controller clock
+ */
+static void MX_DMA_Init(void) {
   /* Init with LL driver */
   /* DMA controller clock enable */
   LL_AHB1_GRP1_EnableClock(LL_AHB1_GRP1_PERIPH_DMA1);
@@ -154,11 +150,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel4_5_IRQn interrupt configuration */
   NVIC_SetPriority(DMA1_Channel4_5_IRQn, 0);
   NVIC_EnableIRQ(DMA1_Channel4_5_IRQn);
-
 }
 
-
-uart_and_dma::uart_and_dma(){
+uart_and_dma::uart_and_dma() {
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();

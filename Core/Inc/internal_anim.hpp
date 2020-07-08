@@ -8,9 +8,8 @@
 #ifndef INTERNAL_ANIM_HPP____SEM_SCH_BME_HU
 #define INTERNAL_ANIM_HPP____SEM_SCH_BME_HU
 
-namespace internal_animation{
-	void step_anim(void);
+namespace internal_animation {
+void step_anim(void);
 };
 
-
-#endif // INTERNAL_ANIM_H____SEM_SCH_BME_HU
+#endif  // INTERNAL_ANIM_H____SEM_SCH_BME_HU

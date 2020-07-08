@@ -1,11 +1,10 @@
-#include "system_init.hpp"
-#include <stm32f0xx_ll_gpio.h>
-#include <stm32f0xx_ll_bus.h>
 #include <gpioes.h>
+#include <stm32f0xx_ll_bus.h>
+#include <stm32f0xx_ll_gpio.h>
 
+#include "system_init.hpp"
 
-gpio::gpio(){
-    
+gpio::gpio() {
   LL_GPIO_InitTypeDef GPIO_InitStruct;
 
   /* GPIO Ports Clock Enable */
