@@ -1,31 +1,43 @@
 # matrix4-fw
 
-TODO better README
+Firmware for 4th generation MUEB.
 
-# Compilation
+## Prerequisites
 
-Tested on **Debian** with gcc-arm-none-eabi/stable,now 15:5.4.1+svn241155-1 amd64
+[STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
 
-Required packages on Debian systems: **make**, **gcc-arm-none-eabi**, **srecord**
+## How to import the project
 
-build process:
+Open **STM32CubeIDE**
 
-simply run **make**
+Use File->Open projects from file system
 
-outputs: 
+Select **matrix4-fw** folder, click Finish
 
-build/MUEB_for_stlink_flash.hex <-- to be flashed with debugger
-build/MUEB_for_remote_update.bin <-- to be used for remote firmware update
+### Download ST drivers
 
-# Debug in GNU environment
+Help->Manage embedded software packages
 
-```bash
-openocd -f interface/stlink-v2.cfg -c "hla_vid_pid 0x0483 0x3748" -f target/stm32f0x.cfg & arm-none-eabi-gdb MUEB_fw.elf --eval-command="target remote localhost:3333"
-```
+Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the **latest version** or **1.11.0**
 
-```
-monitor halt
-load
-monitor reset
-run
-```
+### Generating code
+
+Open **matrix4_mueb_fw.ioc**
+
+Project->Generate code(ALT+K)
+
+## Current hardware parameters
+
+### Microcontroller
+
+https://www.st.com/en/microcontrollers-microprocessors/stm32f030c8.html
+
+| Part No     | Reference                   | Package | Flash     | RAM      | IO   | Freq   |
+| :---------- | --------------------------- | ------- | --------- | -------- | ---- | ------ |
+| STM32F030C8 | STM32F030C8T6/STM32F030C8Tx | LQFP48  | 64 kBytes | 8 kBytes | 39   | 48 MHz |
+
+### WIZnet w5500 ethernet chip
+
+https://www.wiznet.io/product-item/w5500/
+
+https://github.com/Wiznet/ioLibrary_Driver
