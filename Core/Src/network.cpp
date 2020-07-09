@@ -426,7 +426,6 @@ network::network() {
 
   getMAC(netInfo.mac);
   wizchip_setnetinfo(&netInfo);
-  wizchip_getnetinfo(&netInfo);
 
   DHCP_init(6, gDATABUF);
 
