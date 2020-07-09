@@ -5,21 +5,16 @@
  *      Author: kisada
  */
 
-extern "C" {
-#include "socket.h"
-#include "w5500.h"
-#include "wizchip_conf.h"
-};
-
-#include <gpioes.h>
+#include "network.hpp"
 
 #include <cstdio>
 
 #include "dhcp.h"
 #include "dhcp_buffer.h"
 #include "firm_update.hpp"
+#include "gpioes.h"
 #include "mac_eeprom.h"
-#include "network.hpp"
+#include "socket.h"
 #include "status.hpp"
 #include "stm32_flash.hpp"
 #include "stm32f0xx_hal.h"
@@ -28,7 +23,9 @@ extern "C" {
 #include "stm32f0xx_ll_rcc.h"
 #include "stm32f0xx_ll_spi.h"
 #include "version.hpp"
+#include "w5500.h"
 #include "window.hpp"
+#include "wizchip_conf.h"
 //#include "matrix2_package_format.hpp"
 
 //------------------------------------------------------------------------
