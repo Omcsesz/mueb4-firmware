@@ -562,13 +562,8 @@ void network::step_network() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     set_gpio(LED_JOKER);
 
+    // Can be used without IP address
     do_remote_command();
-    fetch_frame();
-    ::step_update();
-
-    wizchip_getnetinfo(&netInfo);
-    status::emelet_szam = netInfo.ip[2];
-    status::szoba_szam = netInfo.ip[3];
 
     // do DHCP task
     switch (DHCP_run()) {
@@ -576,6 +571,14 @@ void network::step_network() {
       case DHCP_IP_CHANGED:
       case DHCP_IP_LEASED:
         set_gpio(LED_DHCP);
+
+        wizchip_getnetinfo(&netInfo);
+        status::emelet_szam = netInfo.ip[2];
+        status::szoba_szam = netInfo.ip[3];
+
+        // Must have IP address to work
+        ::step_update();
+        fetch_frame();
         break;
       case DHCP_FAILED:
         reset_gpio(LED_DHCP);
@@ -586,7 +589,5 @@ void network::step_network() {
   } else {
     reset_gpio(LED_JOKER);
     reset_gpio(LED_DHCP);
-
-    // DHCP_rebind();
   }
 }
