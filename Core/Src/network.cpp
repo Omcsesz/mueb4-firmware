@@ -6,12 +6,10 @@
  */
 
 extern "C" {
-#include "wizchip_conf.h"
 #include "socket.h"
 #include "w5500.h"
+#include "wizchip_conf.h"
 };
-
-#include "network.hpp"
 
 #include <gpioes.h>
 
@@ -21,6 +19,7 @@ extern "C" {
 #include "dhcp_buffer.h"
 #include "firm_update.hpp"
 #include "mac_eeprom.h"
+#include "network.hpp"
 #include "status.hpp"
 #include "stm32_flash.hpp"
 #include "stm32f0xx_hal.h"
@@ -588,6 +587,6 @@ void network::step_network() {
     reset_gpio(LED_JOKER);
     reset_gpio(LED_DHCP);
 
-    DHCP_rebind();
+    // DHCP_rebind();
   }
 }

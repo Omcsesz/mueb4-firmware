@@ -144,8 +144,8 @@ class window {
   bool get_whitebalance_flag();
 };
 
-extern window left_window;
-extern window right_window;
+extern window* left_window;
+extern window* right_window;
 };  // namespace windows
 
 #endif /* WINDOW_HPP_ */

@@ -24,7 +24,13 @@ Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the 
 
 Open **matrix4_mueb_fw.ioc**
 
+Rename main.cpp to main.c
+
 Project->Generate code(ALT+K)
+
+Rename main.c to main.cpp
+
+**Code generator only generates/updates main.c not main.cpp**
 
 ## Current hardware parameters
 
