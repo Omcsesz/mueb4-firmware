@@ -38,22 +38,6 @@ wiz_NetInfo netInfo = {
     .dhcp = NETINFO_DHCP  // Using DHCP
 };
 
-void ip_assign() {
-  getIPfromDHCP(netInfo.ip);
-  getGWfromDHCP(netInfo.gw);
-  getSNfromDHCP(netInfo.sn);
-  getDNSfromDHCP(netInfo.dns);
-  wizchip_setnetinfo(&netInfo);
-
-  set_gpio(LED_DHCP);
-}
-
-// Will be handled on the server side
-void ip_conflict() {
-  reset_gpio(LED_DHCP)
-  // TODO blinking LED e.g. JOKER or SERVER
-}
-
 // DHCP 1s timer located in stm32f0xx_it.c
 
 namespace {
@@ -445,7 +429,6 @@ network::network() {
   wizchip_getnetinfo(&netInfo);
 
   DHCP_init(6, gDATABUF);
-  reg_dhcp_cbfunc(ip_assign, ip_assign, ip_conflict);
 
   socket(1, Sn_MR_UDP, 2000, 0x00);
   socket(2, Sn_MR_UDP, 3000, 0x00);
