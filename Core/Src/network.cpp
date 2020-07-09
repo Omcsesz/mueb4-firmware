@@ -41,10 +41,14 @@ wiz_NetInfo netInfo = {
 // DHCP 1s timer located in stm32f0xx_it.c
 
 namespace {
-const uint8_t fw_update_socket = 4;
+constexpr uint8_t command_socket{0};
+constexpr uint8_t unicast_socket{1};
+constexpr uint8_t multicast_socket{2};
+constexpr uint8_t fw_update_socket{3};
+constexpr uint8_t dhcp_socket{7};
 
 void fetch_frame_unicast_proto() {
-  size_t size = getSn_RX_RSR(2);
+  size_t size = getSn_RX_RSR(unicast_socket);
 
   if (size == 0) return;
 
@@ -58,7 +62,7 @@ void fetch_frame_unicast_proto() {
   uint8_t svr_addr[6];
   uint16_t svr_port;
   uint16_t len;
-  len = recvfrom(2, (uint8_t *)buff, size, svr_addr, &svr_port);
+  len = recvfrom(unicast_socket, (uint8_t *)buff, size, svr_addr, &svr_port);
 
   if (len < /*sizeof(struct)*/ 5) return;
 
@@ -79,7 +83,7 @@ void fetch_frame_multicast_proto() {  // TODO clean the code
   const uint8_t szint = status::emelet_szam;
   const uint8_t szoba = status::szoba_szam;
 
-  size_t size = getSn_RX_RSR(3);
+  size_t size = getSn_RX_RSR(multicast_socket);
   if (size == 0) return;
 
   if (szint == 0 || szoba == 0) return;
@@ -93,7 +97,7 @@ void fetch_frame_multicast_proto() {  // TODO clean the code
   uint8_t svr_addr[6];
   uint16_t svr_port;
   uint16_t len;
-  len = recvfrom(3, (uint8_t *)buff, size, svr_addr, &svr_port);
+  len = recvfrom(multicast_socket, (uint8_t *)buff, size, svr_addr, &svr_port);
   (void)len;
 
   /*
@@ -281,8 +285,8 @@ size_t create_status_string() {
                  "SEM forever\n",
                  mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
                  netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
-                 status::if_internal_animation_is_on, getSn_RX_RSR(1),
-                 getSn_RX_RSR(2));
+                 status::if_internal_animation_is_on,
+                 getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
 
   return (ret >= 0) ? ret : 1;
 }
@@ -427,15 +431,15 @@ network::network() {
   getMAC(netInfo.mac);
   wizchip_setnetinfo(&netInfo);
 
-  DHCP_init(6, gDATABUF);
+  DHCP_init(dhcp_socket, gDATABUF);
 
-  socket(1, Sn_MR_UDP, 2000, 0x00);
-  socket(2, Sn_MR_UDP, 3000, 0x00);
-  socket(3, Sn_MR_UDP, 10000, 0x00);
+  socket(command_socket, Sn_MR_UDP, 2000, 0x00);
+  socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
+  socket(multicast_socket, Sn_MR_UDP, 10000, 0x00);
 }
 
 void network::do_remote_command() {
-  size_t size = getSn_RX_RSR(1);
+  size_t size = getSn_RX_RSR(command_socket);
 
   if (size) {
     toogle_gpio(LED_COMM);
@@ -446,7 +450,7 @@ void network::do_remote_command() {
     uint16_t resp_port;
     int32_t len;
 
-    len = recvfrom(1, (uint8_t *)buff, 32, resp_addr, &resp_port);
+    len = recvfrom(command_socket, (uint8_t *)buff, 32, resp_addr, &resp_port);
 
     // Handle too small and incorrect packages
     if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || len < 4) return;
@@ -491,25 +495,27 @@ void network::do_remote_command() {
         NVIC_SystemReset();
         break;
       case get_status:
-        sendto(1, status_string, create_status_string(), resp_addr, resp_port);
+        sendto(command_socket, status_string, create_status_string(), resp_addr,
+               resp_port);
         break;
       case get_mac:
         char mac[17];
         sprintf(mac, "%x:%x:%x:%x:%x:%x", netInfo.mac[0], netInfo.mac[1],
                 netInfo.mac[2], netInfo.mac[3], netInfo.mac[4], netInfo.mac[5]);
-        sendto(1, (uint8_t *)mac, 17, resp_addr, resp_port);
+        sendto(command_socket, (uint8_t *)mac, 17, resp_addr, resp_port);
         break;
       case delete_anim_network_buffer:
         /// To be implemented TODO
         break;
       case ping:
-        sendto(1, (uint8_t *)"pong", 4, resp_addr, resp_port);
+        sendto(command_socket, (uint8_t *)"pong", 4, resp_addr, resp_port);
         break;
       case enable_update:
         ::enable_update_scoket();
         break;
       case get_new_fw_chksum:
-        sendto(1, status_string, ::calc_new_fw_chksum(), resp_addr, resp_port);
+        sendto(command_socket, status_string, ::calc_new_fw_chksum(), resp_addr,
+               resp_port);
         break;
       case refurbish:
         firmware_update::refurbish();
