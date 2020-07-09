@@ -26,7 +26,6 @@
 #include "w5500.h"
 #include "window.hpp"
 #include "wizchip_conf.h"
-//#include "matrix2_package_format.hpp"
 
 //------------------------------------------------------------------------
 
