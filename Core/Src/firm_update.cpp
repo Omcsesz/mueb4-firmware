@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
+// clang-format off
 /*
  *  _______________________________________________________________________________________________________________
  *  |                                         |        |                                                 |        |
@@ -20,6 +21,7 @@
  *  ^--- Flash page indexes
  *  
  */
+// clang-format on
 
 namespace {
 const uint8_t* flash_begin = (uint8_t*)(0x8000000);
