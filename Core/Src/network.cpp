@@ -76,33 +76,26 @@ void fetch_frame_unicast_proto() {
       .set(red, green, blue);
 }
 
-void fetch_frame_multicast_proto() {  // TODO clean the code
+void fetch_frame_multicast_proto() {
+  auto size = getSn_RX_RSR(multicast_socket);
   const uint8_t szint = status::emelet_szam;
   const uint8_t szoba = status::szoba_szam;
 
-  size_t size = getSn_RX_RSR(multicast_socket);
-  if (size == 0) return;
-
-  if (szint == 0 || szoba == 0) return;
+  if (size == 0 || szint == 0 || szoba == 0) return;
 
   status::turn_internal_anim_off();
 
   toogle_gpio(LED_COMM);
 
-  uint8_t buff[1500] = {};  // TODO exception handling
-
-  uint8_t svr_addr[6];
+  uint8_t buff[1500]{};
+  uint8_t svr_addr[4];
   uint16_t svr_port;
-  uint16_t len;
-  len = recvfrom(multicast_socket, (uint8_t *)buff, size, svr_addr, &svr_port);
-  (void)len;
 
-  /*
-  if (len != sizeof(buff))
-      return;
-  */ //TODO check this code
+  size = recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port);
 
-  if (buff[0] != 0x01 && buff[0] != 0x02) return;
+  if ((buff[0] != 0x01 && buff[0] != 0x02) ||
+      (buff[0] == 0x01 && size < 314) || (buff[0] == 0x02 && size < 1250))
+    return;
 
   auto &first_window = status::getWindow(LEFT);
   auto &second_window = status::getWindow(RIGHT);
