@@ -429,101 +429,99 @@ network::network() {
 }
 
 void network::do_remote_command() {
-  size_t size = getSn_RX_RSR(command_socket);
+  auto size = getSn_RX_RSR(command_socket);
 
-  if (size) {
-    toogle_gpio(LED_COMM);
+  if (size == 0) return;
 
-    char buff[32] = "";
+  toogle_gpio(LED_COMM);
 
-    uint8_t resp_addr[4];
-    uint16_t resp_port;
-    int32_t len;
+  uint8_t buff[32]{};
+  uint8_t resp_addr[4];
+  uint16_t resp_port;
 
-    len = recvfrom(command_socket, (uint8_t *)buff, 32, resp_addr, &resp_port);
+  size = recvfrom(command_socket, buff, sizeof(buff), resp_addr, &resp_port);
 
-    // Handle too small and incorrect packages
-    if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || len < 4) return;
+  // Handle too small and incorrect packages
+  if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || size < 4) return;
 
-    // When the 5th bit is set to 1 it means we're sending a broadcast command
-    // to only one device Can be used when the device don't have an IP address
-    if (buff[4] == 1) {
-      if (netInfo.mac[0] != buff[5] || netInfo.mac[1] != buff[6] ||
-          netInfo.mac[2] != buff[7] || netInfo.mac[3] != buff[8] ||
-          netInfo.mac[4] != buff[9] || netInfo.mac[5] != buff[10])
-        return;  // return when the MAC address doesn't match
+  // When the 5th bit is set to 1 it means we're sending a broadcast command
+  // to only one device Can be used when the device don't have an IP address
+  if (buff[4] == 1) {
+    if (netInfo.mac[0] != buff[5] || netInfo.mac[1] != buff[6] ||
+        netInfo.mac[2] != buff[7] || netInfo.mac[3] != buff[8] ||
+        netInfo.mac[4] != buff[9] || netInfo.mac[5] != buff[10])
+      return;  // return when the MAC address doesn't match
 
-      // If the IP is 0.0.0.0 use broadcast target address
-      if (!netInfo.ip[0] && !netInfo.ip[1] && !netInfo.ip[2] && !netInfo.ip[3])
-        resp_addr[0] = resp_addr[1] = resp_addr[2] = resp_addr[3] = 255;
-    }
+    // If the IP is 0.0.0.0 use broadcast target address
+    if (!netInfo.ip[0] && !netInfo.ip[1] && !netInfo.ip[2] && !netInfo.ip[3])
+      resp_addr[0] = resp_addr[1] = resp_addr[2] = resp_addr[3] = 255;
+  }
 
-    switch (buff[3]) {
-      case use_external_anim:
-        status::turn_internal_anim_off();
-        break;
-      case use_internal_anim:
-        status::turn_internal_anim_on();
-        break;
-      case blank:
-        status::getWindow(RIGHT).blank();
-        status::getWindow(LEFT).blank();
-        break;
-      case turn_12v_off_left:
-        status::getWindow(LEFT).set_state(windows::window::vcc_12v_off);
-        break;
-      case turn_12v_off_right:
-        status::getWindow(RIGHT).set_state(windows::window::vcc_12v_off);
-        break;
-      case reset_left_panel:
-        status::getWindow(LEFT).set_state(windows::window::discharge_caps);
-        break;
-      case reset_right_panel:
-        status::getWindow(RIGHT).set_state(windows::window::discharge_caps);
-        break;
-      case reboot:
-        NVIC_SystemReset();
-        break;
-      case get_status:
-        sendto(command_socket, status_string, create_status_string(), resp_addr,
-               resp_port);
-        break;
-      case get_mac:
-        char mac[17];
-        sprintf(mac, "%x:%x:%x:%x:%x:%x", netInfo.mac[0], netInfo.mac[1],
-                netInfo.mac[2], netInfo.mac[3], netInfo.mac[4], netInfo.mac[5]);
-        sendto(command_socket, (uint8_t *)mac, 17, resp_addr, resp_port);
-        break;
-      case delete_anim_network_buffer:
-        /// To be implemented TODO
-        break;
-      case ping:
-        sendto(command_socket, (uint8_t *)"pong", 4, resp_addr, resp_port);
-        break;
-      case enable_update:
-        ::enable_update_scoket();
-        break;
-      case get_new_fw_chksum:
-        sendto(command_socket, status_string, ::calc_new_fw_chksum(), resp_addr,
-               resp_port);
-        break;
-      case refurbish:
-        firmware_update::refurbish();
-        break;
-      case swap_windows:
-        status::swap_windows();
-        break;
-      case set_whitebalance:
-        for (int i = 0; i < 21; i++) {
-          status::getWindow(LEFT).whitebalance_data[i] = buff[11 + i];
-          status::getWindow(RIGHT).whitebalance_data[i] = buff[11 + i];
-        }
-        status::getWindow(LEFT).set_whitebalance_flag(true);
-        status::getWindow(RIGHT).set_whitebalance_flag(true);
-        break;
-      default:
-        break;
-    }
+  switch (buff[3]) {
+    case use_external_anim:
+      status::turn_internal_anim_off();
+      break;
+    case use_internal_anim:
+      status::turn_internal_anim_on();
+      break;
+    case blank:
+      status::getWindow(RIGHT).blank();
+      status::getWindow(LEFT).blank();
+      break;
+    case turn_12v_off_left:
+      status::getWindow(LEFT).set_state(windows::window::vcc_12v_off);
+      break;
+    case turn_12v_off_right:
+      status::getWindow(RIGHT).set_state(windows::window::vcc_12v_off);
+      break;
+    case reset_left_panel:
+      status::getWindow(LEFT).set_state(windows::window::discharge_caps);
+      break;
+    case reset_right_panel:
+      status::getWindow(RIGHT).set_state(windows::window::discharge_caps);
+      break;
+    case reboot:
+      NVIC_SystemReset();
+      break;
+    case get_status:
+      sendto(command_socket, status_string, create_status_string(), resp_addr,
+             resp_port);
+      break;
+    case get_mac:
+      char mac[17];
+      sprintf(mac, "%x:%x:%x:%x:%x:%x", netInfo.mac[0], netInfo.mac[1],
+              netInfo.mac[2], netInfo.mac[3], netInfo.mac[4], netInfo.mac[5]);
+      sendto(command_socket, (uint8_t *)mac, 17, resp_addr, resp_port);
+      break;
+    case delete_anim_network_buffer:
+      /// To be implemented TODO
+      break;
+    case ping:
+      sendto(command_socket, (uint8_t *)"pong", 4, resp_addr, resp_port);
+      break;
+    case enable_update:
+      ::enable_update_scoket();
+      break;
+    case get_new_fw_chksum:
+      sendto(command_socket, status_string, ::calc_new_fw_chksum(), resp_addr,
+             resp_port);
+      break;
+    case refurbish:
+      firmware_update::refurbish();
+      break;
+    case swap_windows:
+      status::swap_windows();
+      break;
+    case set_whitebalance:
+      for (int i = 0; i < 21; i++) {
+        status::getWindow(LEFT).whitebalance_data[i] = buff[11 + i];
+        status::getWindow(RIGHT).whitebalance_data[i] = buff[11 + i];
+      }
+      status::getWindow(LEFT).set_whitebalance_flag(true);
+      status::getWindow(RIGHT).set_whitebalance_flag(true);
+      break;
+    default:
+      break;
   }
 }
 
