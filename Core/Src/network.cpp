@@ -261,22 +261,23 @@ void spi_wb(uint8_t b) {
 }
 
 ////////////   Status string
-uint8_t status_string[512];
+char status_string[512];
 
 size_t create_status_string() {
   int ret;
 
-  ret = snprintf((char *)status_string, sizeof(status_string),
-                 "MUEB FW version: %s\n"
-                 "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-                 "anim_source: %#x\n"
-                 "telemetry_comm_buff: %#x\n"
-                 "frame_ether_buff: %#x\n"
-                 "SEM forever\n",
-                 mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
-                 netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
-                 status::if_internal_animation_is_on,
-                 getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
+  ret =
+      std::snprintf((char *)status_string, sizeof(status_string),
+                    "MUEB FW version: %s\n"
+                    "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+                    "anim_source: %#x\n"
+                    "telemetry_comm_buff: %#x\n"
+                    "frame_ether_buff: %#x\n"
+                    "SEM forever\n",
+                    mueb_version, netInfo.mac[0], netInfo.mac[1],
+                    netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
+                    netInfo.mac[5], status::if_internal_animation_is_on,
+                    getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
 
   return (ret >= 0) ? ret : 1;
 }
@@ -335,14 +336,15 @@ void step_update() {
 size_t calc_new_fw_chksum() {
   int ret;
 
-  ret = snprintf((char *)status_string, sizeof(status_string),
-                 "MUEB FW version: %s\n"
-                 "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-                 "Chksum: %u\n"
-                 "SEM forever\n",
-                 mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
-                 netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
-                 static_cast<unsigned>(firmware_update::checksum_of_new_fw()));
+  ret = std::snprintf(
+      status_string, sizeof(status_string),
+      "MUEB FW version: %s\n"
+      "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+      "Chksum: %u\n"
+      "SEM forever\n",
+      mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
+      netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
+      static_cast<unsigned>(firmware_update::checksum_of_new_fw()));
 
   return (ret >= 0) ? ret : 1;
 }
@@ -487,14 +489,15 @@ void network::do_remote_command() {
       NVIC_SystemReset();
       break;
     case get_status:
-      sendto(command_socket, status_string, create_status_string(), resp_addr,
-             resp_port);
+      sendto(command_socket, (uint8_t *)status_string, create_status_string(),
+             resp_addr, resp_port);
       break;
     case get_mac:
       char mac[17];
-      sprintf(mac, "%x:%x:%x:%x:%x:%x", netInfo.mac[0], netInfo.mac[1],
-              netInfo.mac[2], netInfo.mac[3], netInfo.mac[4], netInfo.mac[5]);
-      sendto(command_socket, (uint8_t *)mac, 17, resp_addr, resp_port);
+      std::snprintf(mac, sizeof(mac), "%x:%x:%x:%x:%x:%x", netInfo.mac[0],
+                    netInfo.mac[1], netInfo.mac[2], netInfo.mac[3],
+                    netInfo.mac[4], netInfo.mac[5]);
+      sendto(command_socket, (uint8_t *)mac, sizeof(mac), resp_addr, resp_port);
       break;
     case delete_anim_network_buffer:
       /// To be implemented TODO
@@ -506,8 +509,8 @@ void network::do_remote_command() {
       ::enable_update_scoket();
       break;
     case get_new_fw_chksum:
-      sendto(command_socket, status_string, ::calc_new_fw_chksum(), resp_addr,
-             resp_port);
+      sendto(command_socket, (uint8_t *)status_string, ::calc_new_fw_chksum(),
+             resp_addr, resp_port);
       break;
     case refurbish:
       firmware_update::refurbish();
