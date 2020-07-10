@@ -444,8 +444,11 @@ void network::do_remote_command() {
   // Handle too small and incorrect packages
   if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || size < 4) return;
 
-  // When the 5th bit is set to 1 it means we're sending a broadcast command
-  // to only one device Can be used when the device don't have an IP address
+  /*
+   * When the 5th bit is set to 1 it means we're sending a broadcast command to
+   * only one device
+   * Can be used when the device doesn't have an IP address
+   */
   if (buff[4] == 1) {
     if (netInfo.mac[0] != buff[5] || netInfo.mac[1] != buff[6] ||
         netInfo.mac[2] != buff[7] || netInfo.mac[3] != buff[8] ||
