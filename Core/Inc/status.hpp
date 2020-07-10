@@ -3,7 +3,7 @@
 #include <window.hpp>
 
 namespace status {
-enum window_from_outside : bool { LEFT = true, RIGHT = false };
+enum window_from_outside : bool { LEFT = false, RIGHT = true };
 
 extern bool if_internal_animation_is_on;
 
