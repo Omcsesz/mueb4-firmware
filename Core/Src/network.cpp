@@ -93,8 +93,8 @@ void fetch_frame_multicast_proto() {
 
   size = recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port);
 
-  if ((buff[0] != 0x01 && buff[0] != 0x02) ||
-      (buff[0] == 0x01 && size < 314) || (buff[0] == 0x02 && size < 1250))
+  if ((buff[0] != 0x01 && buff[0] != 0x02) || (buff[0] == 0x01 && size < 314) ||
+      (buff[0] == 0x02 && size < 1250))
     return;
 
   auto &first_window = status::getWindow(LEFT);
