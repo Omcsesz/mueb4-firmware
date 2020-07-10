@@ -56,7 +56,7 @@ void fetch_frame_unicast_proto() {
 
   toogle_gpio(LED_COMM);
 
-  uint8_t buff[5];
+  uint8_t buff[5]{};
   size = sizeof(buff);
   uint8_t svr_addr[4];
   uint16_t svr_port;
