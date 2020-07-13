@@ -1,9 +1,14 @@
-#include <gpios.h>
 #include "window.hpp"
 
+#include "gpios.h"
 
-using namespace windows;
+/*****************************
+ *  Instance of static members
+ *****************************/
 
+std::uint8_t sec_cntr_window = 0;
+
+namespace windows {
 /*****************************
  *    Class pixel_data
  *****************************/
@@ -11,8 +16,7 @@ using namespace windows;
 pixel_data::pixel_data()
     : red(0), green(200), blue(0), stat(pixel_data::buffer_full) {}
 
-void pixel_data::set(unsigned char red, unsigned char green,
-                     unsigned char blue) {
+void pixel_data::set(std::uint8_t red, std::uint8_t green, std::uint8_t blue) {
   this->red = red;
   this->green = green;
   this->blue = blue;
@@ -26,8 +30,6 @@ bool pixel_data::isFull() { return this->stat == pixel_data::buffer_full; }
 /*****************************
  *    Class window
  *****************************/
-
-extern "C" uint8_t sec_cntr_window;
 
 void window::step_state() {
   switch (this->status) {
@@ -55,10 +57,11 @@ void window::step_state() {
   }
 }
 
-window::window(GPIO_TypeDef* gpio_port_3v3, uint16_t gpio_pin_3v3,
-               GPIO_TypeDef* gpio_port_power, uint16_t gpio_pin_power,
-               GPIO_TypeDef* gpio_port_tx, uint16_t gpio_pin_tx,
-               USART_TypeDef* USARTx, DMA_TypeDef* DMAx, uint32_t DMA_Channel)
+window::window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
+               GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
+               GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
+               USART_TypeDef* USARTx, DMA_TypeDef* DMAx,
+               std::uint32_t DMA_Channel)
     : status(vcc_3v3_off),
       gpio_port_3v3(gpio_port_3v3),
       gpio_port_tx(gpio_port_tx),
@@ -88,8 +91,9 @@ window::window(GPIO_TypeDef* gpio_port_3v3, uint16_t gpio_pin_3v3,
   LL_DMA_SetMemoryIncMode(DMAx, DMA_Channel, LL_DMA_MEMORY_INCREMENT);
   LL_DMA_SetPeriphSize(DMAx, DMA_Channel, LL_DMA_PDATAALIGN_BYTE);
   LL_DMA_SetMemorySize(DMAx, DMA_Channel, LL_DMA_MDATAALIGN_BYTE);
-  LL_DMA_SetPeriphAddress(DMAx, DMA_Channel, (uint32_t) & (uart_handler->TDR));
-  LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (uint32_t)DMA_buffer);
+  LL_DMA_SetPeriphAddress(DMAx, DMA_Channel,
+                          (std::uint32_t) & (uart_handler->TDR));
+  LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (std::uint32_t)DMA_buffer);
   LL_DMA_SetMemorySize(DMAx, DMA_Channel, LL_DMA_MDATAALIGN_BYTE);
 
   LL_DMA_DisableIT_HT(DMAx, DMA_Channel);
@@ -200,24 +204,26 @@ void window::update_image() {
     whitebalance_flag = false;
   }
 
-  DMA_buffer[0] = 0xF0;      // always this value, never changes
-  size_t transfer_size = 0;  // besides the first F0 byte
+  DMA_buffer[0] = 0xF0;           // always this value, never changes
+  std::size_t transfer_size = 0;  // besides the first F0 byte
 
-  for (size_t j = 0; j < num_of_pixels; j++) {
+  for (std::size_t j = 0; j < num_of_pixels; j++) {
     if (pixels[j].isFull()) {
       pixels[j].flush();
-      uint8_t base = (j & 3) * 3;
+      std::uint8_t base = (j & 3) * 3;
 
       transfer_size++;
-      DMA_buffer[transfer_size] = (uint8_t)(
-          ((base + 0) << 4) | (uint8_t)((pixels[j].red & (uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] = (std::uint8_t)(
+          ((base + 0) << 4) |
+          (std::uint8_t)((pixels[j].red & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
-      DMA_buffer[transfer_size] =
-          (uint8_t)(((base + 1) << 4) |
-                    (uint8_t)((pixels[j].green & (uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] = (std::uint8_t)(
+          ((base + 1) << 4) |
+          (std::uint8_t)((pixels[j].green & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
-      DMA_buffer[transfer_size] = (uint8_t)(
-          ((base + 2) << 4) | (uint8_t)((pixels[j].blue & (uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] = (std::uint8_t)(
+          ((base + 2) << 4) |
+          (std::uint8_t)((pixels[j].blue & (std::uint8_t)0xE0) >> 5));
     }
   }
 
@@ -227,17 +233,17 @@ void window::update_image() {
     LL_DMA_SetDataLength(DMAx, DMA_Channel, transfer_size + 1);
 
     LL_DMA_SetPeriphAddress(DMAx, DMA_Channel,
-                            (uint32_t) & (uart_handler->TDR));  // --|
+                            (std::uint32_t) & (uart_handler->TDR));  // --|
     LL_DMA_SetMemoryAddress(
         DMAx, DMA_Channel,
-        (uint32_t)DMA_buffer);  //  --| --> Maybe unnecesary???
+        (std::uint32_t)DMA_buffer);  //  --| --> Maybe unnecesary???
 
     LL_DMA_EnableChannel(DMAx, DMA_Channel);
   }
 }
 
 void window::blank() {
-  for (size_t j = 0; j < num_of_pixels; j++) pixels[j].set(0, 0, 0);
+  for (std::size_t j = 0; j < num_of_pixels; j++) pixels[j].set(0, 0, 0);
 }
 
 void window::set_whitebalance_flag(bool value) {
@@ -245,9 +251,4 @@ void window::set_whitebalance_flag(bool value) {
 }
 
 bool window::get_whitebalance_flag() { return this->whitebalance_flag; }
-
-/*****************************
- *  Instance of static members
- *****************************/
-
-uint8_t sec_cntr_window = 0;
+}  // namespace windows

@@ -16,37 +16,33 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 
-#include "stm32f0xx_hal.h"
-#include "stm32f0xx_ll_dma.h"
-#include "stm32f0xx_ll_gpio.h"
-#include "stm32f0xx_ll_usart.h"
+#include "main.h"
 
 namespace windows {
-const size_t num_of_pixels = 4;
+constexpr std::size_t num_of_pixels{4};
 
 struct pixel_data {
-  uint8_t red;
-  uint8_t green;
-  uint8_t blue;
+  std::uint8_t red;
+  std::uint8_t green;
+  std::uint8_t blue;
 
   /*!
    * \brief Type created for storing the state of the internal buffer
    * The buffer stores the next differential frame to be sent
    */
-  enum tframe_status { buffer_free, buffer_full };
+  enum tframe_status { buffer_free, buffer_full } stat;
 
-  enum tframe_status stat;
-
-  pixel_data();  // TODO move to cpp file
+  pixel_data();
   pixel_data(const pixel_data&) = delete;
   pixel_data& operator=(const pixel_data&) = delete;
-  //~pixel_data() = delete;
 
   /*
    * Sets a pixel for the given color.
    */
-  void set(unsigned char red, unsigned char green, unsigned char blue);
+  void set(std::uint8_t red, std::uint8_t green, std::uint8_t blue);
 
   /*
    * Sets the stat to free
@@ -63,7 +59,7 @@ class window {
    *
    * see documentation for further information
    */
-  enum twindow_status : uint8_t {
+  enum twindow_status {
     discharge_caps,
     vcc_3v3_off,  // waiting for plug
     vcc_3v3_on,   // waiting for comm
@@ -71,30 +67,11 @@ class window {
     vcc_12v_on    // comm ok
   };
 
- private:
-  twindow_status status;
-
-  GPIO_TypeDef* gpio_port_3v3;
-  GPIO_TypeDef* gpio_port_tx;
-  GPIO_TypeDef* gpio_port_power;                       // TODO add const keyword
-  uint16_t gpio_pin_3v3, gpio_pin_tx, gpio_pin_power;  // TODO add const keyword
-
-  DMA_TypeDef* DMAx;
-  uint32_t DMA_Channel;
-  USART_TypeDef* uart_handler;
-
-  volatile uint8_t DMA_buffer[13];
-
-  bool transmitted_before;
-
-  volatile bool whitebalance_flag;
-
- public:
   window() = delete;
-  window(GPIO_TypeDef* gpio_port_3v3, uint16_t gpio_pin_3v3,
-         GPIO_TypeDef* gpio_port_power, uint16_t gpio_pin_power,
-         GPIO_TypeDef* gpio_port_tx, uint16_t gpio_pin_tx,
-         USART_TypeDef* USARTx, DMA_TypeDef* DMAx, uint32_t DMA_Channel);
+  window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
+         GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
+         GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
+         USART_TypeDef* USARTx, DMA_TypeDef* DMAx, std::uint32_t DMA_Channel);
 
   window(const window&) = delete;
   window& operator=(const window&) = delete;
@@ -128,7 +105,7 @@ class window {
    */
   std::array<pixel_data, num_of_pixels> pixels;
 
-  volatile uint8_t whitebalance_data[21];
+  volatile std::uint8_t whitebalance_data[21];
 
   bool check_uart_welcome_message();
 
@@ -141,6 +118,25 @@ class window {
 
   void set_whitebalance_flag(bool value);
   bool get_whitebalance_flag();
+
+ private:
+  twindow_status status;
+
+  GPIO_TypeDef* gpio_port_3v3;
+  GPIO_TypeDef* gpio_port_tx;
+  GPIO_TypeDef* gpio_port_power;  // TODO add const keyword
+  std::uint16_t gpio_pin_3v3, gpio_pin_tx,
+      gpio_pin_power;  // TODO add const keyword
+
+  DMA_TypeDef* DMAx;
+  std::uint32_t DMA_Channel;
+  USART_TypeDef* uart_handler;
+
+  volatile std::uint8_t DMA_buffer[13];
+
+  bool transmitted_before;
+
+  volatile bool whitebalance_flag;
 };
 
 extern window* left_window;
