@@ -7,4 +7,4 @@
 
 #include "dhcp_buffer.h"
 
-unsigned char gDATABUF[DATA_BUF_SIZE];
+uint8_t gDATABUF[DATA_BUF_SIZE];

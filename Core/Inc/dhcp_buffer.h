@@ -7,13 +7,15 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #define DATA_BUF_SIZE 2048
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern unsigned char gDATABUF[DATA_BUF_SIZE];
+extern uint8_t gDATABUF[DATA_BUF_SIZE];
 
 #ifdef __cplusplus
 }
