@@ -5,30 +5,31 @@
  *      Author: kisada
  */
 
-#include <gpios.h>
 #include "network.hpp"
 
+#include <dhcp.h>
+#include <socket.h>
+#include <w5500.h>
+
+#include <cstdint>
 #include <cstdio>
 
-#include "dhcp.h"
 #include "dhcp_buffer.h"
 #include "firm_update.hpp"
+#include "gpios.h"
 #include "mac_eeprom.h"
-#include "socket.h"
+#include "main.h"
 #include "status.hpp"
 #include "stm32_flash.hpp"
-#include "stm32f0xx_hal.h"
-#include "stm32f0xx_ll_bus.h"
-#include "stm32f0xx_ll_dma.h"
-#include "stm32f0xx_ll_rcc.h"
-#include "stm32f0xx_ll_spi.h"
 #include "version.hpp"
-#include "w5500.h"
 #include "window.hpp"
-#include "wizchip_conf.h"
 
-//------------------------------------------------------------------------
-
+namespace {
+constexpr std::uint8_t command_socket{0};
+constexpr std::uint8_t unicast_socket{1};
+constexpr std::uint8_t multicast_socket{2};
+constexpr std::uint8_t fw_update_socket{3};
+constexpr std::uint8_t dhcp_socket{7};
 wiz_NetInfo netInfo = {
     .mac = {0},  // Mac address will be set later from EEPROM
     .ip = {0},
@@ -38,14 +39,128 @@ wiz_NetInfo netInfo = {
     .dhcp = NETINFO_DHCP  // Using DHCP
 };
 
-// DHCP 1s timer located in stm32f0xx_it.c
+void cs_sel() {
+  reset_gpio(SPI1_NSS);  // ChipSelect to low
+}
 
-namespace {
-constexpr uint8_t command_socket{0};
-constexpr uint8_t unicast_socket{1};
-constexpr uint8_t multicast_socket{2};
-constexpr uint8_t fw_update_socket{3};
-constexpr uint8_t dhcp_socket{7};
+void cs_desel() {
+  set_gpio(SPI1_NSS);  // ChipSelect to high
+}
+
+uint8_t spi_rb(void) {
+  while (LL_SPI_IsActiveFlag_BSY(SPI1))
+    ;
+
+  while (LL_SPI_IsActiveFlag_RXNE(SPI1))
+    LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
+
+  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
+    ;
+
+  LL_SPI_TransmitData8(SPI1, 0xFF);  // send dummy byte
+
+  while (!LL_SPI_IsActiveFlag_RXNE(SPI1))
+    ;
+
+  return (LL_SPI_ReceiveData8(SPI1));
+}
+
+void spi_wb(uint8_t b) {
+  while (LL_SPI_IsActiveFlag_BSY(SPI1))
+    ;
+
+  LL_SPI_TransmitData8(SPI1, b);
+  LL_SPI_ReceiveData8(SPI1);
+}
+
+////////////   Status string
+char status_string[512];
+
+size_t create_status_string() {
+  int ret;
+
+  ret =
+      std::snprintf((char *)status_string, sizeof(status_string),
+                    "MUEB FW version: %s\n"
+                    "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+                    "anim_source: %#x\n"
+                    "telemetry_comm_buff: %#x\n"
+                    "frame_ether_buff: %#x\n"
+                    "SEM forever\n",
+                    mueb_version, netInfo.mac[0], netInfo.mac[1],
+                    netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
+                    netInfo.mac[5], status::if_internal_animation_is_on,
+                    getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
+
+  return (ret >= 0) ? ret : 1;
+}
+
+////////////   FW Update
+
+bool is_update_enabled = false;
+
+inline void enable_update_scoket() {
+  LL_RCC_HSI_Enable();
+
+  while (!LL_RCC_HSI_IsReady())
+    ;
+
+  socket(fw_update_socket, Sn_MR_TCP, 1997, 0x00);
+  is_update_enabled = true;
+
+  listen(fw_update_socket);
+
+  uint8_t blocking = SOCK_IO_NONBLOCK;
+  ctlsocket(fw_update_socket, CS_SET_IOMODE, &blocking);
+}
+
+void step_update() {
+  static size_t next_page_to_fetch = 0;
+
+  if (!is_update_enabled) return;
+
+  uint8_t status;
+  getsockopt(fw_update_socket, SO_STATUS, &status);
+  if (status != SOCK_ESTABLISHED) return;
+
+  std::array<uint8_t, 1024> buff;
+
+  auto buffer_state = recv(fw_update_socket, buff.data(), 1024);
+
+  if (buffer_state == SOCK_BUSY) return;
+
+  stm32_flash::reprogramPage(buff, 32 + next_page_to_fetch);
+
+  next_page_to_fetch++;
+
+  if (next_page_to_fetch == 32) {  // check overflow
+    disconnect(fw_update_socket);
+    is_update_enabled = false;
+    next_page_to_fetch = 0;
+    do {
+      uint8_t status;
+      getsockopt(fw_update_socket, SO_STATUS, &status);
+    } while (status == SOCK_ESTABLISHED);
+
+    close(fw_update_socket);
+  }
+}
+
+size_t calc_new_fw_chksum() {
+  int ret;
+
+  ret = std::snprintf(
+      status_string, sizeof(status_string),
+      "MUEB FW version: %s\n"
+      "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+      "Chksum: %u\n"
+      "SEM forever\n",
+      mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
+      netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
+      static_cast<unsigned>(firmware_update::checksum_of_new_fw()));
+
+  return (ret >= 0) ? ret : 1;
+}
 
 void fetch_frame_unicast_proto() {
   auto size = getSn_RX_RSR(unicast_socket);
@@ -228,125 +343,9 @@ void fetch_frame_multicast_proto() {
   }
 }
 
-void cs_sel() {
-  reset_gpio(SPI1_NSS);  // ChipSelect to low
-}
-
-void cs_desel() {
-  set_gpio(SPI1_NSS);  // ChipSelect to high
-}
-
-uint8_t spi_rb(void) {
-  while (LL_SPI_IsActiveFlag_BSY(SPI1))
-    ;
-
-  while (LL_SPI_IsActiveFlag_RXNE(SPI1))
-    (void)LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
-
-  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
-    ;
-
-  LL_SPI_TransmitData8(SPI1, 0xFF);  // send dummy byte
-  while (!LL_SPI_IsActiveFlag_RXNE(SPI1))
-    ;
-
-  return (LL_SPI_ReceiveData8(SPI1));
-}
-
-void spi_wb(uint8_t b) {
-  while (LL_SPI_IsActiveFlag_BSY(SPI1))
-    ;
-  LL_SPI_TransmitData8(SPI1, b);
-  (void)LL_SPI_ReceiveData8(SPI1);
-}
-
-////////////   Status string
-char status_string[512];
-
-size_t create_status_string() {
-  int ret;
-
-  ret =
-      std::snprintf((char *)status_string, sizeof(status_string),
-                    "MUEB FW version: %s\n"
-                    "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-                    "anim_source: %#x\n"
-                    "telemetry_comm_buff: %#x\n"
-                    "frame_ether_buff: %#x\n"
-                    "SEM forever\n",
-                    mueb_version, netInfo.mac[0], netInfo.mac[1],
-                    netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
-                    netInfo.mac[5], status::if_internal_animation_is_on,
-                    getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
-
-  return (ret >= 0) ? ret : 1;
-}
-
-////////////   FW Update
-
-bool is_update_enabled = false;
-
-inline void enable_update_scoket() {
-  LL_RCC_HSI_Enable();
-
-  while (!LL_RCC_HSI_IsReady())
-    ;
-
-  socket(fw_update_socket, Sn_MR_TCP, 1997, 0x00);
-  is_update_enabled = true;
-
-  listen(fw_update_socket);
-
-  uint8_t blocking = SOCK_IO_NONBLOCK;
-  ctlsocket(fw_update_socket, CS_SET_IOMODE, &blocking);
-}
-
-void step_update() {
-  static size_t next_page_to_fetch = 0;
-
-  if (!is_update_enabled) return;
-
-  uint8_t status;
-  getsockopt(fw_update_socket, SO_STATUS, &status);
-  if (status != SOCK_ESTABLISHED) return;
-
-  std::array<uint8_t, 1024> buff;
-
-  auto buffer_state = recv(fw_update_socket, buff.data(), 1024);
-
-  if (buffer_state == SOCK_BUSY) return;
-
-  stm32_flash::reprogramPage(buff, 32 + next_page_to_fetch);
-
-  next_page_to_fetch++;
-
-  if (next_page_to_fetch == 32) {  // check overflow
-    disconnect(fw_update_socket);
-    is_update_enabled = false;
-    next_page_to_fetch = 0;
-    do {
-      uint8_t status;
-      getsockopt(fw_update_socket, SO_STATUS, &status);
-    } while (status == SOCK_ESTABLISHED);
-
-    close(fw_update_socket);
-  }
-}
-
-size_t calc_new_fw_chksum() {
-  int ret;
-
-  ret = std::snprintf(
-      status_string, sizeof(status_string),
-      "MUEB FW version: %s\n"
-      "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-      "Chksum: %u\n"
-      "SEM forever\n",
-      mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
-      netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
-      static_cast<unsigned>(firmware_update::checksum_of_new_fw()));
-
-  return (ret >= 0) ? ret : 1;
+void fetch_frame() {
+  fetch_frame_multicast_proto();
+  fetch_frame_unicast_proto();
 }
 
 }  // namespace
@@ -423,11 +422,46 @@ network::network() {
   getMAC(netInfo.mac);
   wizchip_setnetinfo(&netInfo);
 
+  // DHCP 1s timer located in stm32f0xx_it.c
   DHCP_init(dhcp_socket, gDATABUF);
 
   socket(command_socket, Sn_MR_UDP, 2000, 0x00);
   socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
   socket(multicast_socket, Sn_MR_UDP, 10000, 0x00);
+}
+
+void network::step_network() {
+  if (wizphy_getphylink() == PHY_LINK_ON) {
+    set_gpio(LED_JOKER);
+
+    // Can be used without IP address
+    do_remote_command();
+
+    // do DHCP task
+    switch (DHCP_run()) {
+      case DHCP_IP_ASSIGN:
+      case DHCP_IP_CHANGED:
+      case DHCP_IP_LEASED:
+        set_gpio(LED_DHCP);
+
+        wizchip_getnetinfo(&netInfo);
+        status::emelet_szam = netInfo.ip[2];
+        status::szoba_szam = netInfo.ip[3];
+
+        // Must have IP address to work
+        step_update();
+        fetch_frame();
+        break;
+      case DHCP_FAILED:
+        reset_gpio(LED_DHCP);
+        break;
+      default:
+        break;
+    }
+  } else {
+    reset_gpio(LED_JOKER);
+    reset_gpio(LED_DHCP);
+  }
 }
 
 void network::do_remote_command() {
@@ -506,10 +540,10 @@ void network::do_remote_command() {
       sendto(command_socket, (uint8_t *)"pong", 4, resp_addr, resp_port);
       break;
     case enable_update:
-      ::enable_update_scoket();
+      enable_update_scoket();
       break;
     case get_new_fw_chksum:
-      sendto(command_socket, (uint8_t *)status_string, ::calc_new_fw_chksum(),
+      sendto(command_socket, (uint8_t *)status_string, calc_new_fw_chksum(),
              resp_addr, resp_port);
       break;
     case refurbish:
@@ -528,44 +562,5 @@ void network::do_remote_command() {
       break;
     default:
       break;
-  }
-}
-
-void network::fetch_frame() {
-  fetch_frame_unicast_proto();
-  fetch_frame_multicast_proto();
-}
-
-void network::step_network() {
-  if (wizphy_getphylink() == PHY_LINK_ON) {
-    set_gpio(LED_JOKER);
-
-    // Can be used without IP address
-    do_remote_command();
-
-    // do DHCP task
-    switch (DHCP_run()) {
-      case DHCP_IP_ASSIGN:
-      case DHCP_IP_CHANGED:
-      case DHCP_IP_LEASED:
-        set_gpio(LED_DHCP);
-
-        wizchip_getnetinfo(&netInfo);
-        status::emelet_szam = netInfo.ip[2];
-        status::szoba_szam = netInfo.ip[3];
-
-        // Must have IP address to work
-        ::step_update();
-        fetch_frame();
-        break;
-      case DHCP_FAILED:
-        reset_gpio(LED_DHCP);
-        break;
-      default:
-        break;
-    }
-  } else {
-    reset_gpio(LED_JOKER);
-    reset_gpio(LED_DHCP);
   }
 }

@@ -8,13 +8,6 @@
 #pragma once
 
 class network {
- private:
-  network(const network&) = delete;
-  network& operator=(const network&) = delete;
-
-  void do_remote_command();
-  void fetch_frame();
-
  public:
   enum commands {
     turn_12v_off_left = 0x00,
@@ -37,5 +30,11 @@ class network {
   };
 
   network();
+  network(const network&) = delete;
+  network& operator=(const network&) = delete;
+
   void step_network();
+
+ private:
+  void do_remote_command();
 };
