@@ -8,7 +8,6 @@
 #include "firm_update.hpp"
 
 #include <cstddef>
-#include <cstdint>
 
 // clang-format off
 /*

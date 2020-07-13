@@ -9,8 +9,6 @@
 
 #include <stdint.h>
 
-#include "stddef.h"
-
 namespace firmware_update {
 uint64_t checksum_of_new_fw();
 void refurbish [[noreturn]] ();
