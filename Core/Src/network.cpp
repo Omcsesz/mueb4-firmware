@@ -5,6 +5,7 @@
  *      Author: kisada
  */
 
+#include <gpios.h>
 #include "network.hpp"
 
 #include <cstdio>
@@ -12,7 +13,6 @@
 #include "dhcp.h"
 #include "dhcp_buffer.h"
 #include "firm_update.hpp"
-#include "gpioes.h"
 #include "mac_eeprom.h"
 #include "socket.h"
 #include "status.hpp"
