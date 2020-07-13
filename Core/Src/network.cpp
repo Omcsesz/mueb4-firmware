@@ -212,8 +212,8 @@ void fetch_frame_multicast_proto() {
       (buff[0] == 0x02 && size < 1250))
     return;
 
-  auto &first_window = status::getWindow(LEFT);
-  auto &second_window = status::getWindow(RIGHT);
+  auto &first_window = status::getWindow(status::LEFT);
+  auto &second_window = status::getWindow(status::RIGHT);
 
   uint8_t r, g, b;
 
@@ -504,20 +504,22 @@ void network::do_remote_command() {
       status::turn_internal_anim_on();
       break;
     case blank:
-      status::getWindow(RIGHT).blank();
-      status::getWindow(LEFT).blank();
+      status::getWindow(status::LEFT).blank();
+      status::getWindow(status::RIGHT).blank();
       break;
     case turn_12v_off_left:
-      status::getWindow(LEFT).set_state(windows::window::vcc_12v_off);
+      status::getWindow(status::LEFT).set_state(windows::window::vcc_12v_off);
       break;
     case turn_12v_off_right:
-      status::getWindow(RIGHT).set_state(windows::window::vcc_12v_off);
+      status::getWindow(status::RIGHT).set_state(windows::window::vcc_12v_off);
       break;
     case reset_left_panel:
-      status::getWindow(LEFT).set_state(windows::window::discharge_caps);
+      status::getWindow(status::LEFT)
+          .set_state(windows::window::discharge_caps);
       break;
     case reset_right_panel:
-      status::getWindow(RIGHT).set_state(windows::window::discharge_caps);
+      status::getWindow(status::RIGHT)
+          .set_state(windows::window::discharge_caps);
       break;
     case reboot:
       NVIC_SystemReset();
@@ -554,11 +556,11 @@ void network::do_remote_command() {
       break;
     case set_whitebalance:
       for (int i = 0; i < 21; i++) {
-        status::getWindow(LEFT).whitebalance_data[i] = buff[11 + i];
-        status::getWindow(RIGHT).whitebalance_data[i] = buff[11 + i];
+        status::getWindow(status::LEFT).whitebalance_data[i] = buff[11 + i];
+        status::getWindow(status::RIGHT).whitebalance_data[i] = buff[11 + i];
       }
-      status::getWindow(LEFT).set_whitebalance_flag(true);
-      status::getWindow(RIGHT).set_whitebalance_flag(true);
+      status::getWindow(status::LEFT).set_whitebalance_flag(true);
+      status::getWindow(status::RIGHT).set_whitebalance_flag(true);
       break;
     default:
       break;
