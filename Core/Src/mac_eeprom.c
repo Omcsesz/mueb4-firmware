@@ -5,7 +5,7 @@
 // 24AA02E48T-I/OT
 
 extern I2C_HandleTypeDef hi2c2;
-const uint8_t eeprom_address = 0b10100000;
+const uint8_t eeprom_address = 0b10100001;
 const uint16_t eui48_start_addr = 0xFA;
 
 void getMAC(uint8_t* dest) {
