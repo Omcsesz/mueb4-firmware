@@ -8,5 +8,5 @@
 #pragma once
 
 namespace internal_animation {
-void step_anim(void);
+void step_anim();
 };

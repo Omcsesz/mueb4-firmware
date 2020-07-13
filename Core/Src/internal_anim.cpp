@@ -7,26 +7,29 @@
 
 #include "internal_anim.hpp"
 
+#include <cstddef>
+#include <cstdint>
+
 #include "window.hpp"
 
-extern "C" uint8_t time_to_next_frame;
-uint8_t time_to_next_frame = 0;
+std::uint8_t time_to_next_frame = 0;
 
 void internal_animation::step_anim(void) {
-  static uint32_t i = 0;
+  static std::uint32_t i = 0;
   static char szin = 0;
 
   if (!time_to_next_frame) return;
 
   time_to_next_frame = 0;
 
-  for (size_t k = 0; k < windows::num_of_pixels; k++) {
-    uint8_t j = i << 5;
+  for (std::size_t k = 0; k < windows::num_of_pixels; k++) {
+    std::uint8_t j = i << 5;
     windows::right_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
-                                        szin == 2 ? j : 0);
+                                         szin == 2 ? j : 0);
     windows::left_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
-                                       szin == 2 ? j : 0);
+                                        szin == 2 ? j : 0);
   }
+
   i++;
   if (i == 0x8) i = 0;
   if (i == 0) szin++;
