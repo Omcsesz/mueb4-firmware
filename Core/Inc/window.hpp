@@ -13,8 +13,7 @@
  *
  *****************************************************************************/
 
-#ifndef WINDOW_HPP_
-#define WINDOW_HPP_
+#pragma once
 
 #include <array>
 
@@ -147,5 +146,3 @@ class window {
 extern window* left_window;
 extern window* right_window;
 };  // namespace windows
-
-#endif /* WINDOW_HPP_ */

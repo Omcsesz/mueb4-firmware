@@ -5,8 +5,7 @@
  *      Author: kisada
  */
 
-#ifndef NETWORK_HPP_
-#define NETWORK_HPP_
+#pragma once
 
 class network {
  private:
@@ -40,5 +39,3 @@ class network {
   network();
   void step_network();
 };
-
-#endif /* NETWORK_HPP_ */

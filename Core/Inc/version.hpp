@@ -5,8 +5,7 @@
  *      Author: kisada
  */
 
-#ifndef VERSION_HPP_
-#define VERSION_HPP_
+#pragma once
 
 const char* mueb_version =
 
@@ -22,5 +21,3 @@ const char* mueb_version =
 #endif
 
     ;
-
-#endif /* VERSION_HPP_ */

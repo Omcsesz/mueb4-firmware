@@ -5,8 +5,7 @@
  *      Author: kisada
  */
 
-#ifndef DHCP_BUFFER_H_
-#define DHCP_BUFFER_H_
+#pragma once
 
 #define DATA_BUF_SIZE 2048
 
@@ -19,5 +18,3 @@ extern unsigned char gDATABUF[DATA_BUF_SIZE];
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* DHCP_BUFFER_H_ */
