@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 namespace firmware_update {
-uint64_t checksum_of_new_fw();
+std::uint64_t checksum_of_new_fw();
 void refurbish [[noreturn]] ();
 }  // namespace firmware_update
