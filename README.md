@@ -47,3 +47,7 @@ https://www.st.com/en/microcontrollers-microprocessors/stm32f030c8.html
 https://www.wiznet.io/product-item/w5500/
 
 https://github.com/Wiznet/ioLibrary_Driver
+
+### Microchip 24AA02E48T-I/OT
+
+https://www.microchip.com/wwwproducts/en/24AA02E48
