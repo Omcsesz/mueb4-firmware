@@ -13,7 +13,7 @@ extern "C" {
 
 #include <stdint.h>
 
-#define DATA_BUF_SIZE 2048
+#define DATA_BUF_SIZE 1024
 
 extern uint8_t gDATABUF[DATA_BUF_SIZE];
 
