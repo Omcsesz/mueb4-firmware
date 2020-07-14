@@ -356,42 +356,6 @@ void fetch_frame() {
  ********************************/
 
 network::network() {
-  LL_GPIO_InitTypeDef GPIO_InitStruct;
-
-  /* Peripheral clock enable */
-  LL_APB1_GRP2_EnableClock(LL_APB1_GRP2_PERIPH_SPI1);
-
-  /**SPI1 GPIO Configuration
-  PA5     ------> SPI1_SCK
-  PA6     ------> SPI1_MISO
-  PA7     ------> SPI1_MOSI
-  */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_5 | LL_GPIO_PIN_6 | LL_GPIO_PIN_7;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  GPIO_InitStruct.Alternate = LL_GPIO_AF_0;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  LL_SPI_Disable(SPI1);
-
-  LL_SPI_SetBaudRatePrescaler(SPI1, LL_SPI_BAUDRATEPRESCALER_DIV2);
-  LL_SPI_SetClockPolarity(SPI1, LL_SPI_POLARITY_LOW);
-  LL_SPI_SetClockPhase(SPI1, LL_SPI_PHASE_1EDGE);
-  LL_SPI_SetTransferDirection(SPI1, LL_SPI_FULL_DUPLEX);
-  LL_SPI_SetTransferBitOrder(SPI1, LL_SPI_MSB_FIRST);
-  LL_SPI_DisableCRC(SPI1);
-  LL_SPI_SetMode(SPI1, LL_SPI_MODE_MASTER);
-
-  LL_SPI_SetRxFIFOThreshold(SPI1, LL_SPI_RX_FIFO_TH_QUARTER);
-  LL_SPI_SetDataWidth(SPI1, LL_SPI_DATAWIDTH_8BIT);
-  LL_SPI_SetStandard(SPI1, LL_SPI_PROTOCOL_MOTOROLA);
-
-  LL_SPI_SetNSSMode(SPI1, LL_SPI_NSS_SOFT);
-
-  LL_SPI_Enable(SPI1);
-
   // uint8_t memsize[2][8] = { { 2, 2, 2, 2, 2, 2, 2, 2 }, { 0, 1, 2, 8, 2, 1,
   // 1, 1 } }; //TODO reassign buffer sizes
   uint8_t memsize[2][8] = {
