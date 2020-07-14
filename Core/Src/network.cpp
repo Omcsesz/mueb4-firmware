@@ -350,10 +350,10 @@ void fetch_frame() {
 
 network::network() {
   // Hard-reset W5500
-  LL_GPIO_ResetOutputPin(W5500_RESET_GPIO_Port, W5500_RESET_Pin);
+  reset_gpio(W5500_RESET);
   HAL_Delay(1);  // min reset cycle 500 us
-  LL_GPIO_SetOutputPin(W5500_RESET_GPIO_Port, W5500_RESET_Pin);
-  HAL_Delay(2);  // PLL lock 1 ms max (refer datasheet)
+  toogle_gpio(W5500_RESET);
+  HAL_Delay(1);  // PLL lock 1 ms max (refer datasheet)
 
   reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
   reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
