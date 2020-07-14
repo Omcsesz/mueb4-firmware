@@ -42,9 +42,6 @@ void cs_desel() {
 }
 
 std::uint8_t spi_rb(void) {
-  while (LL_SPI_IsActiveFlag_BSY(SPI1))
-    ;
-
   while (LL_SPI_IsActiveFlag_RXNE(SPI1))
     LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
 
@@ -60,11 +57,10 @@ std::uint8_t spi_rb(void) {
 }
 
 void spi_wb(std::uint8_t b) {
-  while (LL_SPI_IsActiveFlag_BSY(SPI1))
+  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
     ;
 
   LL_SPI_TransmitData8(SPI1, b);
-  LL_SPI_ReceiveData8(SPI1);
 }
 
 ////////////   Status string
@@ -360,6 +356,7 @@ network::network() {
 
   getMAC(netInfo.mac);
   setSHAR(netInfo.mac);
+  netInfo.dhcp = NETINFO_DHCP;
 
   // DHCP 1s timer located in stm32f0xx_it.c
   DHCP_init(dhcp_socket, gDATABUF);
