@@ -1,8 +1,8 @@
 #pragma once
 
-#include <stddef.h>
-
 #include <array>
+#include <cstddef>
+#include <cstdint>
 
 #include "stm32f0xx.h"
 
@@ -35,15 +35,15 @@ struct unlock_flash {
   void operator=(unlock_flash&) = delete;
 };
 
-static constexpr size_t pageSize = 1024;  // 1 KByte per page
-static uint8_t* const flash_addr = (uint8_t*)(0x08000000);
+static constexpr std::size_t pageSize = 1024;  // 1 KByte per page
+static std::uint8_t* const flash_addr = (std::uint8_t*)(0x08000000);
 
-void erasePage(const uint32_t page_num);
+void erasePage(const std::uint32_t page_num);
 
 void write_halfword(
-    const uint16_t towrite,
-    volatile uint16_t* const addr);  // A pointer a konstans nem az adat.
+    const std::uint16_t towrite,
+    volatile std::uint16_t* const addr);  // A pointer a konstans nem az adat.
 
-void reprogramPage(const std::array<uint8_t, pageSize>& Buff,
-                   const uint32_t page_num);
+void reprogramPage(const std::array<std::uint8_t, pageSize>& Buff,
+                   const std::uint32_t page_num);
 }  // namespace stm32_flash

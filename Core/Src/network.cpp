@@ -11,6 +11,7 @@
 #include <socket.h>
 #include <w5500.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 
@@ -47,7 +48,7 @@ void cs_desel() {
   set_gpio(SPI1_NSS);  // ChipSelect to high
 }
 
-uint8_t spi_rb(void) {
+std::uint8_t spi_rb(void) {
   while (LL_SPI_IsActiveFlag_BSY(SPI1))
     ;
 
@@ -65,7 +66,7 @@ uint8_t spi_rb(void) {
   return (LL_SPI_ReceiveData8(SPI1));
 }
 
-void spi_wb(uint8_t b) {
+void spi_wb(std::uint8_t b) {
   while (LL_SPI_IsActiveFlag_BSY(SPI1))
     ;
 
@@ -76,7 +77,7 @@ void spi_wb(uint8_t b) {
 ////////////   Status string
 char status_string[512];
 
-size_t create_status_string() {
+std::size_t create_status_string() {
   int ret;
 
   ret =
@@ -110,20 +111,20 @@ inline void enable_update_scoket() {
 
   listen(fw_update_socket);
 
-  uint8_t blocking = SOCK_IO_NONBLOCK;
+  std::uint8_t blocking = SOCK_IO_NONBLOCK;
   ctlsocket(fw_update_socket, CS_SET_IOMODE, &blocking);
 }
 
 void step_update() {
-  static size_t next_page_to_fetch = 0;
+  static std::size_t next_page_to_fetch = 0;
 
   if (!is_update_enabled) return;
 
-  uint8_t status;
+  std::uint8_t status;
   getsockopt(fw_update_socket, SO_STATUS, &status);
   if (status != SOCK_ESTABLISHED) return;
 
-  std::array<uint8_t, 1024> buff;
+  std::array<std::uint8_t, 1024> buff;
 
   auto buffer_state = recv(fw_update_socket, buff.data(), 1024);
 
@@ -138,7 +139,7 @@ void step_update() {
     is_update_enabled = false;
     next_page_to_fetch = 0;
     do {
-      uint8_t status;
+      std::uint8_t status;
       getsockopt(fw_update_socket, SO_STATUS, &status);
     } while (status == SOCK_ESTABLISHED);
 
@@ -146,7 +147,7 @@ void step_update() {
   }
 }
 
-size_t calc_new_fw_chksum() {
+std::size_t calc_new_fw_chksum() {
   int ret;
 
   ret = std::snprintf(
@@ -171,20 +172,20 @@ void fetch_frame_unicast_proto() {
 
   toogle_gpio(LED_COMM);
 
-  uint8_t buff[5]{};
+  std::uint8_t buff[5]{};
   size = sizeof(buff);
-  uint8_t svr_addr[4];
-  uint16_t svr_port;
+  std::uint8_t svr_addr[4];
+  std::uint16_t svr_port;
 
   if (recvfrom(unicast_socket, buff, size, svr_addr, &svr_port) < size ||
       buff[0] >= 2 || buff[1] >= 4)
     return;
 
   bool window = buff[0];
-  uint8_t pixel_num = buff[1];
-  uint8_t red = buff[2];
-  uint8_t green = buff[3];
-  uint8_t blue = buff[4];
+  std::uint8_t pixel_num = buff[1];
+  std::uint8_t red = buff[2];
+  std::uint8_t green = buff[3];
+  std::uint8_t blue = buff[4];
 
   status::getWindow(static_cast<status::window_from_outside>(window))
       .pixels[pixel_num]
@@ -193,8 +194,8 @@ void fetch_frame_unicast_proto() {
 
 void fetch_frame_multicast_proto() {
   auto size = getSn_RX_RSR(multicast_socket);
-  const uint8_t szint = status::emelet_szam;
-  const uint8_t szoba = status::szoba_szam;
+  const std::uint8_t szint = status::emelet_szam;
+  const std::uint8_t szoba = status::szoba_szam;
 
   if (size == 0 || szint == 0 || szoba == 0) return;
 
@@ -202,9 +203,9 @@ void fetch_frame_multicast_proto() {
 
   toogle_gpio(LED_COMM);
 
-  uint8_t buff[1500]{};
-  uint8_t svr_addr[4];
-  uint16_t svr_port;
+  std::uint8_t buff[1500]{};
+  std::uint8_t svr_addr[4];
+  std::uint16_t svr_port;
 
   size = recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port);
 
@@ -215,10 +216,10 @@ void fetch_frame_multicast_proto() {
   auto &first_window = status::getWindow(status::LEFT);
   auto &second_window = status::getWindow(status::RIGHT);
 
-  uint8_t r, g, b;
+  std::uint8_t r, g, b;
 
-  uint32_t base_offset = 0;
-  size_t running_offset = 0;
+  std::uint32_t base_offset = 0;
+  std::size_t running_offset = 0;
 
   if (buff[0] == 0x01) {
     /* Read compressed pixels window wise from frame buffer
@@ -228,8 +229,8 @@ void fetch_frame_multicast_proto() {
      * room column * 2 pixel vertically
      * 52 window per packet
      */
-    uint8_t pn_expected = (((18 - szint) * 16 + (szoba - 5) * 2) / 52);
-    uint8_t pn = buff[1];
+    std::uint8_t pn_expected = (((18 - szint) * 16 + (szoba - 5) * 2) / 52);
+    std::uint8_t pn = buff[1];
 
     if (pn != pn_expected) return;
 
@@ -471,9 +472,9 @@ void network::do_remote_command() {
 
   toogle_gpio(LED_COMM);
 
-  uint8_t buff[32]{};
-  uint8_t resp_addr[4];
-  uint16_t resp_port;
+  std::uint8_t buff[32]{};
+  std::uint8_t resp_addr[4];
+  std::uint16_t resp_port;
 
   size = recvfrom(command_socket, buff, sizeof(buff), resp_addr, &resp_port);
 
@@ -525,28 +526,29 @@ void network::do_remote_command() {
       NVIC_SystemReset();
       break;
     case get_status:
-      sendto(command_socket, (uint8_t *)status_string, create_status_string(),
-             resp_addr, resp_port);
+      sendto(command_socket, (std::uint8_t *)status_string,
+             create_status_string(), resp_addr, resp_port);
       break;
     case get_mac:
       char mac[17];
       std::snprintf(mac, sizeof(mac), "%x:%x:%x:%x:%x:%x", netInfo.mac[0],
                     netInfo.mac[1], netInfo.mac[2], netInfo.mac[3],
                     netInfo.mac[4], netInfo.mac[5]);
-      sendto(command_socket, (uint8_t *)mac, sizeof(mac), resp_addr, resp_port);
+      sendto(command_socket, (std::uint8_t *)mac, sizeof(mac), resp_addr,
+             resp_port);
       break;
     case delete_anim_network_buffer:
       /// To be implemented TODO
       break;
     case ping:
-      sendto(command_socket, (uint8_t *)"pong", 4, resp_addr, resp_port);
+      sendto(command_socket, (std::uint8_t *)"pong", 4, resp_addr, resp_port);
       break;
     case enable_update:
       enable_update_scoket();
       break;
     case get_new_fw_chksum:
-      sendto(command_socket, (uint8_t *)status_string, calc_new_fw_chksum(),
-             resp_addr, resp_port);
+      sendto(command_socket, (std::uint8_t *)status_string,
+             calc_new_fw_chksum(), resp_addr, resp_port);
       break;
     case refurbish:
       firmware_update::refurbish();
