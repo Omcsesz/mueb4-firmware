@@ -31,14 +31,7 @@ constexpr std::uint8_t unicast_socket{1};
 constexpr std::uint8_t multicast_socket{2};
 constexpr std::uint8_t fw_update_socket{3};
 constexpr std::uint8_t dhcp_socket{7};
-wiz_NetInfo netInfo = {
-    .mac = {0},  // Mac address will be set later from EEPROM
-    .ip = {0},
-    .sn = {0},
-    .gw = {0},
-    .dns = {0},
-    .dhcp = NETINFO_DHCP  // Using DHCP
-};
+wiz_NetInfo netInfo;
 
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
@@ -356,13 +349,6 @@ void fetch_frame() {
  ********************************/
 
 network::network() {
-  // uint8_t memsize[2][8] = { { 2, 2, 2, 2, 2, 2, 2, 2 }, { 0, 1, 2, 8, 2, 1,
-  // 1, 1 } }; //TODO reassign buffer sizes
-  uint8_t memsize[2][8] = {
-      {2, 2, 2, 2, 2, 2, 2, 2},
-      {2, 2, 2, 2, 2, 2, 2, 2}};  // TODO reassign buffer sizes
-  wiz_PhyConf phyconf;
-
   // Hard-reset W5500
   LL_GPIO_ResetOutputPin(W5500_RESET_GPIO_Port, W5500_RESET_Pin);
   HAL_Delay(1);  // min reset cycle 500 us
@@ -372,20 +358,8 @@ network::network() {
   reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
   reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
 
-  ctlwizchip(CW_INIT_WIZCHIP, (void *)memsize);
-  wizphy_setphypmode(PHY_POWER_DOWN);
-
-  wizphy_getphyconf(&phyconf);
-  phyconf.by = PHY_CONFBY_SW;
-  phyconf.duplex = PHY_DUPLEX_FULL;
-  phyconf.mode = PHY_MODE_MANUAL;
-  phyconf.speed = PHY_SPEED_100;
-  wizphy_setphyconf(&phyconf);
-
-  wizphy_setphypmode(PHY_POWER_NORM);
-
   getMAC(netInfo.mac);
-  wizchip_setnetinfo(&netInfo);
+  setSHAR(netInfo.mac);
 
   // DHCP 1s timer located in stm32f0xx_it.c
   DHCP_init(dhcp_socket, gDATABUF);
