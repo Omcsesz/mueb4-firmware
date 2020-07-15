@@ -13,19 +13,22 @@ namespace windows {
  *    Class pixel_data
  *****************************/
 
-pixel_data::pixel_data()
-    : red(0), green(200), blue(0), stat(pixel_data::buffer_full) {}
-
 void pixel_data::set(std::uint8_t red, std::uint8_t green, std::uint8_t blue) {
-  this->red = red;
-  this->green = green;
-  this->blue = blue;
-  this->stat = pixel_data::buffer_full;
+  m_red = red;
+  m_green = green;
+  m_blue = blue;
+  m_stat = pixel_data::buffer_full;
 }
 
-void pixel_data::flush() { this->stat = pixel_data::buffer_free; }
+void pixel_data::flush() { m_stat = pixel_data::buffer_free; }
 
-bool pixel_data::isFull() { return this->stat == pixel_data::buffer_full; }
+bool pixel_data::isFull() { return m_stat == pixel_data::buffer_full; }
+
+std::uint8_t pixel_data::red() { return m_red; }
+
+std::uint8_t pixel_data::green() { return m_green; }
+
+std::uint8_t pixel_data::blue() { return m_blue; }
 
 /*****************************
  *    Class window
@@ -215,15 +218,15 @@ void window::update_image() {
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 0) << 4) |
-          (std::uint8_t)((pixels[j].red & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixels[j].red() & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 1) << 4) |
-          (std::uint8_t)((pixels[j].green & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixels[j].green() & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 2) << 4) |
-          (std::uint8_t)((pixels[j].blue & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixels[j].blue() & (std::uint8_t)0xE0) >> 5));
     }
   }
 

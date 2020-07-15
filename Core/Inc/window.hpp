@@ -24,18 +24,15 @@
 namespace windows {
 constexpr std::size_t num_of_pixels{4};
 
-struct pixel_data {
-  std::uint8_t red;
-  std::uint8_t green;
-  std::uint8_t blue;
-
+class pixel_data {
+ public:
   /*!
    * \brief Type created for storing the state of the internal buffer
    * The buffer stores the next differential frame to be sent
    */
-  enum tframe_status { buffer_free, buffer_full } stat;
+  enum tframe_status { buffer_free, buffer_full } m_stat{buffer_full};
 
-  pixel_data();
+  pixel_data() = default;
   pixel_data(const pixel_data&) = delete;
   pixel_data& operator=(const pixel_data&) = delete;
 
@@ -50,6 +47,15 @@ struct pixel_data {
   void flush();
 
   bool isFull();
+
+  std::uint8_t red();
+  std::uint8_t green();
+  std::uint8_t blue();
+
+ private:
+  std::uint8_t m_red{0};
+  std::uint8_t m_green{200};
+  std::uint8_t m_blue{0};
 };
 
 class window {
