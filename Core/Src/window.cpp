@@ -209,24 +209,25 @@ void window::update_image() {
 
   DMA_buffer[0] = 0xF0;           // always this value, never changes
   std::size_t transfer_size = 0;  // besides the first F0 byte
+  std::size_t i{0};
 
-  for (std::size_t j = 0; j < num_of_pixels; j++) {
-    if (pixels[j].isFull()) {
-      pixels[j].flush();
-      std::uint8_t base = (j & 3) * 3;
+  for (auto&& pixel : pixels) {
+    if (pixel.isFull()) {
+      pixel.flush();
+      std::uint8_t base = i++ * 3;
 
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 0) << 4) |
-          (std::uint8_t)((pixels[j].red() & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixel.red() & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 1) << 4) |
-          (std::uint8_t)((pixels[j].green() & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixel.green() & (std::uint8_t)0xE0) >> 5));
       transfer_size++;
       DMA_buffer[transfer_size] = (std::uint8_t)(
           ((base + 2) << 4) |
-          (std::uint8_t)((pixels[j].blue() & (std::uint8_t)0xE0) >> 5));
+          (std::uint8_t)((pixel.blue() & (std::uint8_t)0xE0) >> 5));
     }
   }
 
@@ -246,7 +247,9 @@ void window::update_image() {
 }
 
 void window::blank() {
-  for (std::size_t j = 0; j < num_of_pixels; j++) pixels[j].set(0, 0, 0);
+  for (auto&& pixel : pixels) {
+    pixel.set(0, 0, 0);
+  }
 }
 
 void window::set_whitebalance_flag(bool value) {
