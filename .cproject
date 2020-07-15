@@ -103,8 +103,8 @@
 					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.220782891.883044223" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 						<entry excluding="Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS|Application|Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -211,8 +211,8 @@
 					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.release.604742391.1244373384" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 						<entry excluding="Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS|Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
+						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

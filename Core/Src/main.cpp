@@ -108,11 +108,13 @@ int main(void)
   /* USER CODE BEGIN 2 */
   windows::window left_window(WINDOW_3V3_LEFT_GPIO_Port, WINDOW_3V3_LEFT_Pin,
                               WINDOW_POWER_LEFT_GPIO_Port,
-                              WINDOW_POWER_LEFT_Pin, GPIOA, LL_GPIO_PIN_2,
-                              USART2, DMA1, LL_DMA_CHANNEL_4);
+                              WINDOW_POWER_LEFT_Pin, WINDOW_TX_LEFT_GPIO_Port,
+                              WINDOW_TX_LEFT_Pin, USART2, DMA1,
+                              LL_DMA_CHANNEL_4);
   windows::window right_window(WINDOW_3V3_RIGHT_GPIO_Port, WINDOW_3V3_RIGHT_Pin,
                                WINDOW_POWER_RIGHT_GPIO_Port,
-                               WINDOW_POWER_RIGHT_Pin, GPIOA, LL_GPIO_PIN_9,
+                               WINDOW_POWER_RIGHT_Pin,
+                               WINDOW_TX_RIGHT_GPIO_Port, WINDOW_TX_RIGHT_Pin,
                                USART1, DMA1, LL_DMA_CHANNEL_2);
   windows::left_window = &left_window;
   windows::right_window = &right_window;
@@ -399,21 +401,21 @@ static void MX_USART1_UART_Init(void)
   PA9   ------> USART1_TX
   PA10   ------> USART1_RX 
   */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_9;
+  GPIO_InitStruct.Pin = WINDOW_TX_RIGHT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_1;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_TX_RIGHT_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_10;
+  GPIO_InitStruct.Pin = WINDOW_RX_RIGHT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_1;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_RX_RIGHT_GPIO_Port, &GPIO_InitStruct);
 
   /* USART1 DMA Init */
   
@@ -476,21 +478,21 @@ static void MX_USART2_UART_Init(void)
   PA2   ------> USART2_TX
   PA3   ------> USART2_RX 
   */
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_2;
+  GPIO_InitStruct.Pin = WINDOW_TX_LEFT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_1;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_TX_LEFT_GPIO_Port, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_3;
+  GPIO_InitStruct.Pin = WINDOW_RX_LEFT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_1;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_RX_LEFT_GPIO_Port, &GPIO_InitStruct);
 
   /* USART2 DMA Init */
   
@@ -583,7 +585,7 @@ static void MX_GPIO_Init(void)
   LL_GPIO_ResetOutputPin(LED_DHCP_GPIO_Port, LED_DHCP_Pin);
 
   /**/
-  LL_GPIO_ResetOutputPin(LED_HEARTH_GPIO_Port, LED_HEARTH_Pin);
+  LL_GPIO_ResetOutputPin(LED_HEART_GPIO_Port, LED_HEART_Pin);
 
   /**/
   LL_GPIO_ResetOutputPin(WINDOW_POWER_RIGHT_GPIO_Port, WINDOW_POWER_RIGHT_Pin);
@@ -615,16 +617,16 @@ static void MX_GPIO_Init(void)
   LL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_0;
+  GPIO_InitStruct.Pin = WINDOW_ADC_3V3_LEFT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_ADC_3V3_LEFT_GPIO_Port, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_1;
+  GPIO_InitStruct.Pin = WINDOW_ADC_3V3_RIGHT_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  LL_GPIO_Init(WINDOW_ADC_3V3_RIGHT_GPIO_Port, &GPIO_InitStruct);
 
   /**/
   GPIO_InitStruct.Pin = SPI1_NSS_Pin;
@@ -635,10 +637,10 @@ static void MX_GPIO_Init(void)
   LL_GPIO_Init(SPI1_NSS_GPIO_Port, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = LL_GPIO_PIN_0;
-  GPIO_InitStruct.Mode = LL_GPIO_MODE_ANALOG;
+  GPIO_InitStruct.Pin = W5500_INT_Pin;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  LL_GPIO_Init(W5500_INT_GPIO_Port, &GPIO_InitStruct);
 
   /**/
   GPIO_InitStruct.Pin = W5500_RESET_Pin;
@@ -691,12 +693,12 @@ static void MX_GPIO_Init(void)
   LL_GPIO_Init(LED_DHCP_GPIO_Port, &GPIO_InitStruct);
 
   /**/
-  GPIO_InitStruct.Pin = LED_HEARTH_Pin;
+  GPIO_InitStruct.Pin = LED_HEART_Pin;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-  LL_GPIO_Init(LED_HEARTH_GPIO_Port, &GPIO_InitStruct);
+  LL_GPIO_Init(LED_HEART_GPIO_Port, &GPIO_InitStruct);
 
   /**/
   GPIO_InitStruct.Pin = LL_GPIO_PIN_8;
