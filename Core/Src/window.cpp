@@ -217,17 +217,14 @@ void window::update_image() {
       std::uint8_t base = i++ * 3;
 
       transfer_size++;
-      DMA_buffer[transfer_size] = (std::uint8_t)(
-          ((base + 0) << 4) |
-          (std::uint8_t)((pixel.red() & (std::uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] =
+          (std::uint8_t)(base + 0) << 4 | (pixel.red() & 0xE0) >> 5;
       transfer_size++;
-      DMA_buffer[transfer_size] = (std::uint8_t)(
-          ((base + 1) << 4) |
-          (std::uint8_t)((pixel.green() & (std::uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] =
+          (std::uint8_t)(base + 1) << 4 | (pixel.green() & 0xE0) >> 5;
       transfer_size++;
-      DMA_buffer[transfer_size] = (std::uint8_t)(
-          ((base + 2) << 4) |
-          (std::uint8_t)((pixel.blue() & (std::uint8_t)0xE0) >> 5));
+      DMA_buffer[transfer_size] =
+          (std::uint8_t)(base + 2) << 4 | (pixel.blue() & 0xE0) >> 5;
     }
   }
 
