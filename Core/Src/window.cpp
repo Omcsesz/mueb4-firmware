@@ -131,17 +131,6 @@ void window::set_state(enum twindow_status new_stat) {
       new_stat = discharge_caps;
     case discharge_caps:
       sec_cntr_window = 0;
-      {
-        LL_GPIO_InitTypeDef GPIO_InitStruct;
-        GPIO_InitStruct.Pin = gpio_pin_tx;
-        GPIO_InitStruct.Mode = LL_GPIO_MODE_OUTPUT;
-        GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-        GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-        LL_GPIO_Init(gpio_port_tx, &GPIO_InitStruct);
-      }
-      LL_GPIO_ResetOutputPin(gpio_port_tx, gpio_pin_tx);
-
       LL_GPIO_SetOutputPin(gpio_port_3v3, gpio_pin_3v3);
       break;
     case vcc_3v3_off:
@@ -153,18 +142,6 @@ void window::set_state(enum twindow_status new_stat) {
       sec_cntr_window = 0;
       // EMPTY DMA BUFFER
       LL_GPIO_ResetOutputPin(gpio_port_3v3, gpio_pin_3v3);
-
-      {
-        LL_GPIO_InitTypeDef GPIO_InitStruct;
-        GPIO_InitStruct.Pin = gpio_pin_tx;
-        GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
-        GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_HIGH;
-        GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
-        GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
-        GPIO_InitStruct.Alternate = LL_GPIO_AF_1;
-        LL_GPIO_Init(gpio_port_tx, &GPIO_InitStruct);
-      }
-
       LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
     case vcc_12v_on:
