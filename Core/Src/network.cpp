@@ -465,12 +465,11 @@ void network::do_remote_command() {
              create_status_string(), resp_addr, resp_port);
       break;
     case get_mac:
-      char mac[17];
+      char mac[18];
       std::snprintf(mac, sizeof(mac), "%x:%x:%x:%x:%x:%x", netInfo.mac[0],
                     netInfo.mac[1], netInfo.mac[2], netInfo.mac[3],
                     netInfo.mac[4], netInfo.mac[5]);
-      sendto(command_socket, (std::uint8_t *)mac, sizeof(mac), resp_addr,
-             resp_port);
+      sendto(command_socket, (std::uint8_t *)mac, 17, resp_addr, resp_port);
       break;
     case delete_anim_network_buffer:
       /// To be implemented TODO
