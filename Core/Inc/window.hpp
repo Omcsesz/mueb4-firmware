@@ -21,9 +21,6 @@
 
 #include "main.h"
 
-namespace windows {
-constexpr std::size_t num_of_pixels{4};
-
 class pixel_data {
  public:
   /*!
@@ -72,6 +69,10 @@ class window {
     vcc_12v_off,  // panel turned off remotely
     vcc_12v_on    // comm ok
   };
+
+  enum window_from_outside : bool { LEFT = false, RIGHT = true };
+
+  static constexpr std::size_t num_of_pixels{4};
 
   window() = delete;
   window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
@@ -125,6 +126,15 @@ class window {
   void set_whitebalance_flag(bool value);
   bool get_whitebalance_flag();
 
+  static void swap_windows();
+  static window& get_window(window_from_outside);
+
+  static void turn_internal_anim_on();
+  static void turn_internal_anim_off();
+  static bool is_internal_animation_on();
+
+  static void step_anim();
+
  private:
   twindow_status status;
 
@@ -143,8 +153,12 @@ class window {
   bool transmitted_before;
 
   volatile bool whitebalance_flag;
+
+  static bool internal_animation_on;
+  static bool windows_swapped;
 };
 
+namespace windows {
 extern window* left_window;
 extern window* right_window;
 };  // namespace windows

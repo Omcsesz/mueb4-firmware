@@ -9,10 +9,7 @@
 
 #include <dhcp.h>
 #include <socket.h>
-#include <w5500.h>
 
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
 
 #include "dhcp_buffer.h"
@@ -20,19 +17,11 @@
 #include "gpios.h"
 #include "mac_eeprom.h"
 #include "main.h"
-#include "status.hpp"
 #include "stm32_flash.hpp"
 #include "version.hpp"
 #include "window.hpp"
 
 namespace {
-constexpr std::uint8_t command_socket{0};
-constexpr std::uint8_t unicast_socket{1};
-constexpr std::uint8_t multicast_socket{2};
-constexpr std::uint8_t fw_update_socket{3};
-constexpr std::uint8_t dhcp_socket{7};
-wiz_NetInfo netInfo;
-
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
 }
@@ -62,11 +51,69 @@ void spi_wb(std::uint8_t b) {
 
   LL_SPI_TransmitData8(SPI1, b);
 }
+}  // namespace
 
-////////////   Status string
-char status_string[512];
+/*********************************
+ *  network Class function defs
+ ********************************/
 
-std::size_t create_status_string() {
+network::network() {
+  // Hard-reset W5500
+  reset_gpio(W5500_RESET);
+  HAL_Delay(1);  // min reset cycle 500 us
+  toogle_gpio(W5500_RESET);
+  HAL_Delay(1);  // PLL lock 1 ms max (refer datasheet)
+
+  reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
+  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
+
+  getMAC(netInfo.mac);
+  setSHAR(netInfo.mac);
+  netInfo.dhcp = NETINFO_DHCP;
+
+  // DHCP 1s timer located in stm32f0xx_it.c
+  DHCP_init(dhcp_socket, gDATABUF);
+
+  socket(command_socket, Sn_MR_UDP, 2000, 0x00);
+  socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
+  socket(multicast_socket, Sn_MR_UDP, 10000, 0x00);
+}
+
+void network::step_network() {
+  if (wizphy_getphylink() == PHY_LINK_ON) {
+    set_gpio(LED_JOKER);
+
+    // Can be used without IP address
+    do_remote_command();
+
+    // do DHCP task
+    switch (DHCP_run()) {
+      case DHCP_IP_ASSIGN:
+      case DHCP_IP_CHANGED:
+      case DHCP_IP_LEASED:
+        set_gpio(LED_DHCP);
+
+        wizchip_getnetinfo(&netInfo);
+        emelet_szam = netInfo.ip[2];
+        szoba_szam = netInfo.ip[3];
+
+        // Must have IP address to work
+        step_update();
+        fetch_frame();
+        break;
+      case DHCP_FAILED:
+        reset_gpio(LED_DHCP);
+        break;
+      default:
+        break;
+    }
+  } else {
+    reset_gpio(LED_JOKER);
+    reset_gpio(LED_DHCP);
+  }
+}
+
+std::size_t network::create_status_string() {
   int ret;
 
   ret =
@@ -79,7 +126,7 @@ std::size_t create_status_string() {
                     "SEM forever\n",
                     mueb_version, netInfo.mac[0], netInfo.mac[1],
                     netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
-                    netInfo.mac[5], status::if_internal_animation_is_on,
+                    netInfo.mac[5], window::is_internal_animation_on(),
                     getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
 
   return (ret >= 0) ? ret : 1;
@@ -87,9 +134,7 @@ std::size_t create_status_string() {
 
 ////////////   FW Update
 
-bool is_update_enabled = false;
-
-inline void enable_update_scoket() {
+void network::enable_update_scoket() {
   LL_RCC_HSI_Enable();
 
   while (!LL_RCC_HSI_IsReady())
@@ -104,7 +149,7 @@ inline void enable_update_scoket() {
   ctlsocket(fw_update_socket, CS_SET_IOMODE, &blocking);
 }
 
-void step_update() {
+void network::step_update() {
   static std::size_t next_page_to_fetch = 0;
 
   if (!is_update_enabled) return;
@@ -136,7 +181,7 @@ void step_update() {
   }
 }
 
-std::size_t calc_new_fw_chksum() {
+std::size_t network::calc_new_fw_chksum() {
   int ret;
 
   ret = std::snprintf(
@@ -152,12 +197,12 @@ std::size_t calc_new_fw_chksum() {
   return (ret >= 0) ? ret : 1;
 }
 
-void fetch_frame_unicast_proto() {
+void network::fetch_frame_unicast_proto() {
   auto size = getSn_RX_RSR(unicast_socket);
 
   if (size == 0) return;
 
-  status::turn_internal_anim_off();
+  window::turn_internal_anim_off();
 
   toogle_gpio(LED_COMM);
 
@@ -176,19 +221,19 @@ void fetch_frame_unicast_proto() {
   std::uint8_t green = buff[3];
   std::uint8_t blue = buff[4];
 
-  status::getWindow(static_cast<status::window_from_outside>(window))
+  window::get_window(static_cast<window::window_from_outside>(window))
       .pixels[pixel_num]
       .set(red, green, blue);
 }
 
-void fetch_frame_multicast_proto() {
+void network::fetch_frame_multicast_proto() {
   auto size = getSn_RX_RSR(multicast_socket);
-  const std::uint8_t szint = status::emelet_szam;
-  const std::uint8_t szoba = status::szoba_szam;
+  const std::uint8_t szint = emelet_szam;
+  const std::uint8_t szoba = szoba_szam;
 
   if (size == 0 || szint == 0 || szoba == 0) return;
 
-  status::turn_internal_anim_off();
+  window::turn_internal_anim_off();
 
   toogle_gpio(LED_COMM);
 
@@ -202,8 +247,8 @@ void fetch_frame_multicast_proto() {
       (buff[0] == 0x02 && size < 1250))
     return;
 
-  auto &first_window = status::getWindow(status::LEFT);
-  auto &second_window = status::getWindow(status::RIGHT);
+  auto &first_window = window::get_window(window::LEFT);
+  auto &second_window = window::get_window(window::RIGHT);
 
   std::uint8_t r, g, b;
 
@@ -333,71 +378,9 @@ void fetch_frame_multicast_proto() {
   }
 }
 
-void fetch_frame() {
+void network::fetch_frame() {
   fetch_frame_multicast_proto();
   fetch_frame_unicast_proto();
-}
-
-}  // namespace
-
-/*********************************
- *  network Class function defs
- ********************************/
-
-network::network() {
-  // Hard-reset W5500
-  reset_gpio(W5500_RESET);
-  HAL_Delay(1);  // min reset cycle 500 us
-  toogle_gpio(W5500_RESET);
-  HAL_Delay(1);  // PLL lock 1 ms max (refer datasheet)
-
-  reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
-  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
-
-  getMAC(netInfo.mac);
-  setSHAR(netInfo.mac);
-  netInfo.dhcp = NETINFO_DHCP;
-
-  // DHCP 1s timer located in stm32f0xx_it.c
-  DHCP_init(dhcp_socket, gDATABUF);
-
-  socket(command_socket, Sn_MR_UDP, 2000, 0x00);
-  socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
-  socket(multicast_socket, Sn_MR_UDP, 10000, 0x00);
-}
-
-void network::step_network() {
-  if (wizphy_getphylink() == PHY_LINK_ON) {
-    set_gpio(LED_JOKER);
-
-    // Can be used without IP address
-    do_remote_command();
-
-    // do DHCP task
-    switch (DHCP_run()) {
-      case DHCP_IP_ASSIGN:
-      case DHCP_IP_CHANGED:
-      case DHCP_IP_LEASED:
-        set_gpio(LED_DHCP);
-
-        wizchip_getnetinfo(&netInfo);
-        status::emelet_szam = netInfo.ip[2];
-        status::szoba_szam = netInfo.ip[3];
-
-        // Must have IP address to work
-        step_update();
-        fetch_frame();
-        break;
-      case DHCP_FAILED:
-        reset_gpio(LED_DHCP);
-        break;
-      default:
-        break;
-    }
-  } else {
-    reset_gpio(LED_JOKER);
-    reset_gpio(LED_DHCP);
-  }
 }
 
 void network::do_remote_command() {
@@ -434,28 +417,26 @@ void network::do_remote_command() {
 
   switch (buff[3]) {
     case use_external_anim:
-      status::turn_internal_anim_off();
+      window::turn_internal_anim_off();
       break;
     case use_internal_anim:
-      status::turn_internal_anim_on();
+      window::turn_internal_anim_on();
       break;
     case blank:
-      status::getWindow(status::LEFT).blank();
-      status::getWindow(status::RIGHT).blank();
+      window::get_window(window::LEFT).blank();
+      window::get_window(window::RIGHT).blank();
       break;
     case turn_12v_off_left:
-      status::getWindow(status::LEFT).set_state(windows::window::vcc_12v_off);
+      window::get_window(window::LEFT).set_state(window::vcc_12v_off);
       break;
     case turn_12v_off_right:
-      status::getWindow(status::RIGHT).set_state(windows::window::vcc_12v_off);
+      window::get_window(window::RIGHT).set_state(window::vcc_12v_off);
       break;
     case reset_left_panel:
-      status::getWindow(status::LEFT)
-          .set_state(windows::window::discharge_caps);
+      window::get_window(window::LEFT).set_state(window::discharge_caps);
       break;
     case reset_right_panel:
-      status::getWindow(status::RIGHT)
-          .set_state(windows::window::discharge_caps);
+      window::get_window(window::RIGHT).set_state(window::discharge_caps);
       break;
     case reboot:
       NVIC_SystemReset();
@@ -488,15 +469,15 @@ void network::do_remote_command() {
       firmware_update::refurbish();
       break;
     case swap_windows:
-      status::swap_windows();
+      window::swap_windows();
       break;
     case set_whitebalance:
       for (int i = 0; i < 21; i++) {
-        status::getWindow(status::LEFT).whitebalance_data[i] = buff[11 + i];
-        status::getWindow(status::RIGHT).whitebalance_data[i] = buff[11 + i];
+        window::get_window(window::LEFT).whitebalance_data[i] = buff[11 + i];
+        window::get_window(window::RIGHT).whitebalance_data[i] = buff[11 + i];
       }
-      status::getWindow(status::LEFT).set_whitebalance_flag(true);
-      status::getWindow(status::RIGHT).set_whitebalance_flag(true);
+      window::get_window(window::LEFT).set_whitebalance_flag(true);
+      window::get_window(window::RIGHT).set_whitebalance_flag(true);
       break;
     default:
       break;

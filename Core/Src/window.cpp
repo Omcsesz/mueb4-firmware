@@ -7,8 +7,10 @@
  *****************************/
 
 std::uint8_t sec_cntr_window = 0;
+std::uint8_t time_to_next_frame = 0;
+bool window::internal_animation_on{true};
+bool window::windows_swapped{false};
 
-namespace windows {
 /*****************************
  *    Class pixel_data
  *****************************/
@@ -231,4 +233,42 @@ void window::set_whitebalance_flag(bool value) {
 }
 
 bool window::get_whitebalance_flag() { return this->whitebalance_flag; }
-}  // namespace windows
+
+void window::swap_windows() { windows_swapped = not windows_swapped; }
+
+window& window::get_window(window_from_outside w) {
+  const bool target = w xor windows_swapped;
+
+  if (target == LEFT)
+    return *windows::right_window;
+  else
+    return *windows::left_window;
+}
+
+void window::turn_internal_anim_on() { internal_animation_on = true; }
+
+void window::turn_internal_anim_off() { internal_animation_on = false; }
+
+bool window::is_internal_animation_on() { return internal_animation_on; }
+
+void window::step_anim() {
+  static std::uint32_t i = 0;
+  static char szin = 0;
+
+  if (!time_to_next_frame) return;
+
+  time_to_next_frame = 0;
+
+  for (std::size_t k = 0; k < window::num_of_pixels; k++) {
+    std::uint8_t j = i << 5;
+    windows::right_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
+                                         szin == 2 ? j : 0);
+    windows::left_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
+                                        szin == 2 ? j : 0);
+  }
+
+  i++;
+  if (i == 0x8) i = 0;
+  if (i == 0) szin++;
+  if (szin == 3) szin = 0;
+}

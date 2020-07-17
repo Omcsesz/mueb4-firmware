@@ -7,6 +7,11 @@
 
 #pragma once
 
+#include <w5500.h>
+
+#include <cstddef>
+#include <cstdint>
+
 class network {
  public:
   enum commands {
@@ -36,5 +41,26 @@ class network {
   void step_network();
 
  private:
+  static constexpr std::uint8_t command_socket{0};
+  static constexpr std::uint8_t unicast_socket{1};
+  static constexpr std::uint8_t multicast_socket{2};
+  static constexpr std::uint8_t fw_update_socket{3};
+  static constexpr std::uint8_t dhcp_socket{7};
+  wiz_NetInfo netInfo;
+
+  std::uint8_t emelet_szam{0};
+  std::uint8_t szoba_szam{0};
+
+  char status_string[512];
+  bool is_update_enabled = false;
+
+  std::size_t create_status_string();
+  void enable_update_scoket();
+  void step_update();
+  std::size_t calc_new_fw_chksum();
+
+  void fetch_frame();
+  void fetch_frame_unicast_proto();
+  void fetch_frame_multicast_proto();
   void do_remote_command();
 };
