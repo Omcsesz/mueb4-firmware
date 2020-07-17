@@ -472,9 +472,9 @@ void network::do_remote_command() {
       window::swap_windows();
       break;
     case set_whitebalance:
-      for (int i = 0; i < 21; i++) {
-        window::get_window(window::LEFT).whitebalance_data[i] = buff[11 + i];
-        window::get_window(window::RIGHT).whitebalance_data[i] = buff[11 + i];
+      for (int i = 1; i < 22; i++) {
+        window::get_window(window::LEFT).whitebalance_data[i] = buff[10 + i];
+        window::get_window(window::RIGHT).whitebalance_data[i] = buff[10 + i];
       }
       window::get_window(window::LEFT).set_whitebalance_flag(true);
       window::get_window(window::RIGHT).set_whitebalance_flag(true);

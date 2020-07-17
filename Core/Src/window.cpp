@@ -39,6 +39,7 @@ std::uint8_t pixel_data::blue() { return m_blue; }
 void window::step_state() {
   switch (this->status) {
     case vcc_12v_on:
+      if (whitebalance_flag) update_whitebalance();
       this->update_image();
       break;
     case vcc_12v_off:
@@ -76,53 +77,15 @@ window::window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
       gpio_pin_power(gpio_pin_power),
       DMAx(DMAx),
       DMA_Channel(DMA_Channel),
-      uart_handler(USARTx),
+      usart(USARTx),
       transmitted_before(false),
       whitebalance_flag(false) {
-  LL_DMA_DisableChannel(DMAx, DMA_Channel);
-
-  while (LL_DMA_IsEnabledChannel(DMAx, DMA_Channel))
-    ;
-
-  LL_USART_Enable(uart_handler);
-  LL_USART_EnableDMAReq_TX(uart_handler);
-  LL_USART_EnableDirectionTx(uart_handler);
-
-  LL_DMA_SetDataTransferDirection(DMAx, DMA_Channel,
-                                  LL_DMA_DIRECTION_MEMORY_TO_PERIPH);
-  LL_DMA_SetChannelPriorityLevel(DMAx, DMA_Channel, LL_DMA_PRIORITY_MEDIUM);
-  LL_DMA_SetMode(DMAx, DMA_Channel, LL_DMA_MODE_NORMAL);
-  LL_DMA_SetPeriphIncMode(DMAx, DMA_Channel, LL_DMA_PERIPH_NOINCREMENT);
-  LL_DMA_SetMemoryIncMode(DMAx, DMA_Channel, LL_DMA_MEMORY_INCREMENT);
-  LL_DMA_SetPeriphSize(DMAx, DMA_Channel, LL_DMA_PDATAALIGN_BYTE);
-  LL_DMA_SetMemorySize(DMAx, DMA_Channel, LL_DMA_MDATAALIGN_BYTE);
-  LL_DMA_SetPeriphAddress(DMAx, DMA_Channel,
-                          (std::uint32_t) & (uart_handler->TDR));
+  LL_DMA_SetPeriphAddress(DMAx, DMA_Channel, (uint32_t)&usart->TDR);
   LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (std::uint32_t)DMA_buffer);
-  LL_DMA_SetMemorySize(DMAx, DMA_Channel, LL_DMA_MDATAALIGN_BYTE);
-
-  LL_DMA_DisableIT_HT(DMAx, DMA_Channel);
-  LL_DMA_DisableIT_TC(DMAx, DMA_Channel);
-  LL_DMA_DisableIT_TE(DMAx, DMA_Channel);
-
-  if (DMA_Channel == LL_DMA_CHANNEL_2)
-    LL_DMA_ClearFlag_GI2(DMAx);
-  else if (DMA_Channel == LL_DMA_CHANNEL_4)
-    LL_DMA_ClearFlag_GI4(DMAx);
-  else
-    while (1)
-      ;
-
-  LL_USART_ClearFlag_TC(uart_handler);
-
-  LL_DMA_SetDataLength(DMAx, DMA_Channel, 1);
-
-  // Do a first tranfer, to set TC flag
-  DMA_buffer[0] = 0xF0;
-  LL_DMA_EnableChannel(DMAx, DMA_Channel);
+  LL_DMA_SetDataLength(DMAx, DMA_Channel, 13);
+  LL_USART_EnableDMAReq_TX(usart);
 
   this->set_state(discharge_caps);
-  DMA_buffer[0] = 0xF0;
 };
 
 window::twindow_status window::get_state() { return this->status; }
@@ -156,38 +119,12 @@ void window::set_state(enum twindow_status new_stat) {
   this->status = new_stat;
 }
 
-bool window::check_uart_welcome_message() {
-  // TODO DMA things
-  return true;
-}
+bool window::check_uart_welcome_message() { return true; }
 
 void window::update_image() {
-  if ((!LL_USART_IsActiveFlag_TC(uart_handler))) return;
+  if (!LL_USART_IsActiveFlag_TC(usart)) return;
 
-  LL_DMA_DisableChannel(DMAx, DMA_Channel);
-
-  if (DMA_Channel == LL_DMA_CHANNEL_2)
-    LL_DMA_ClearFlag_GI2(DMAx);
-  else if (DMA_Channel == LL_DMA_CHANNEL_4)
-    LL_DMA_ClearFlag_GI4(DMAx);
-  else
-    while (1)
-      ;
-
-  if (whitebalance_flag) {
-    while (!LL_USART_IsActiveFlag_TXE(uart_handler))
-      ;
-    LL_USART_TransmitData8(uart_handler, 0xE0);
-    for (int i = 0; i < 21; i++) {
-      while (!LL_USART_IsActiveFlag_TXE(uart_handler))
-        ;
-      LL_USART_TransmitData8(uart_handler, whitebalance_data[i]);
-    }
-    whitebalance_flag = false;
-  }
-
-  DMA_buffer[0] = 0xF0;           // always this value, never changes
-  std::size_t transfer_size = 0;  // besides the first F0 byte
+  std::size_t transfer_size{0};  // besides the first F0 byte
   std::size_t i{0};
 
   for (auto&& pixel : pixels) {
@@ -195,29 +132,19 @@ void window::update_image() {
       pixel.flush();
       std::uint8_t base = i++ * 3;
 
-      transfer_size++;
-      DMA_buffer[transfer_size] =
+      DMA_buffer[++transfer_size] =
           (std::uint8_t)(base + 0) << 4 | (pixel.red() & 0xE0) >> 5;
-      transfer_size++;
-      DMA_buffer[transfer_size] =
+      DMA_buffer[++transfer_size] =
           (std::uint8_t)(base + 1) << 4 | (pixel.green() & 0xE0) >> 5;
-      transfer_size++;
-      DMA_buffer[transfer_size] =
+      DMA_buffer[++transfer_size] =
           (std::uint8_t)(base + 2) << 4 | (pixel.blue() & 0xE0) >> 5;
     }
   }
 
-  if (transfer_size > 0) {
-    LL_USART_ClearFlag_TC(uart_handler);
-
+  if (transfer_size) {
+    LL_DMA_DisableChannel(DMAx, DMA_Channel);
     LL_DMA_SetDataLength(DMAx, DMA_Channel, transfer_size + 1);
-
-    LL_DMA_SetPeriphAddress(DMAx, DMA_Channel,
-                            (std::uint32_t) & (uart_handler->TDR));  // --|
-    LL_DMA_SetMemoryAddress(
-        DMAx, DMA_Channel,
-        (std::uint32_t)DMA_buffer);  //  --| --> Maybe unnecesary???
-
+    LL_USART_ClearFlag_TC(usart);
     LL_DMA_EnableChannel(DMAx, DMA_Channel);
   }
 }
@@ -271,4 +198,22 @@ void window::step_anim() {
   if (i == 0x8) i = 0;
   if (i == 0) szin++;
   if (szin == 3) szin = 0;
+}
+
+void window::update_whitebalance() {
+  LL_DMA_DisableChannel(DMAx, DMA_Channel);
+
+  LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (std::uint32_t)whitebalance_data);
+  LL_DMA_SetDataLength(DMAx, DMA_Channel, 22);
+
+  LL_USART_ClearFlag_TC(usart);
+  LL_DMA_EnableChannel(DMAx, DMA_Channel);
+
+  while (!LL_USART_IsActiveFlag_TC(usart))
+    ;
+
+  LL_DMA_DisableChannel(DMAx, DMA_Channel);
+  LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (std::uint32_t)DMA_buffer);
+
+  whitebalance_flag = false;
 }

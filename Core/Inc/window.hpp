@@ -112,7 +112,7 @@ class window {
    */
   std::array<pixel_data, num_of_pixels> pixels;
 
-  volatile std::uint8_t whitebalance_data[21];
+  volatile std::uint8_t whitebalance_data[22]{0xE0};
 
   bool check_uart_welcome_message();
 
@@ -146,9 +146,9 @@ class window {
 
   DMA_TypeDef* DMAx;
   std::uint32_t DMA_Channel;
-  USART_TypeDef* uart_handler;
+  USART_TypeDef* usart;
 
-  volatile std::uint8_t DMA_buffer[13];
+  std::uint8_t DMA_buffer[13]{0xF0};
 
   bool transmitted_before;
 
@@ -156,6 +156,8 @@ class window {
 
   static bool internal_animation_on;
   static bool windows_swapped;
+
+  void update_whitebalance();
 };
 
 namespace windows {
