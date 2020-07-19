@@ -21,6 +21,8 @@
 #include "version.hpp"
 #include "window.hpp"
 
+extern std::uint32_t _firmware_update_handler;
+
 namespace {
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
@@ -458,15 +460,14 @@ void network::do_remote_command() {
     case ping:
       sendto(command_socket, (std::uint8_t *)"pong", 4, resp_addr, resp_port);
       break;
-    case enable_update:
-      enable_update_scoket();
+    case enable_update: {
+      void *f = (std::uint32_t *)&_firmware_update_handler;
+      goto *f;
       break;
+    }
     case get_new_fw_chksum:
       sendto(command_socket, (std::uint8_t *)status_string,
              calc_new_fw_chksum(), resp_addr, resp_port);
-      break;
-    case refurbish:
-      firmware_update::refurbish();
       break;
     case swap_windows:
       window::swap_windows();

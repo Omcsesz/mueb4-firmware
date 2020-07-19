@@ -152,6 +152,8 @@ Debug/
 Release/
 build/
 FirmwareUpdate/
+FirmwareUpdateDebug/
+
 # Code Recommenders
 \.vscode/
 
