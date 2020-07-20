@@ -27,8 +27,8 @@ class network {
     blank = 0x30,
     delete_anim_network_buffer = 0x06,
     ping = 0x40,
-    enable_update = 0x50,
-    get_new_fw_chksum = 0x51,
+    start_firmware_update = 0x50,
+    get_firmware_checksum = 0x51,
     swap_windows = 0x70,
     set_whitebalance = 0x80
   };
@@ -43,7 +43,6 @@ class network {
   static constexpr std::uint8_t command_socket{0};
   static constexpr std::uint8_t unicast_socket{1};
   static constexpr std::uint8_t multicast_socket{2};
-  static constexpr std::uint8_t fw_update_socket{3};
   static constexpr std::uint8_t dhcp_socket{7};
   wiz_NetInfo netInfo;
 
@@ -51,12 +50,8 @@ class network {
   std::uint8_t szoba_szam{0};
 
   char status_string[512];
-  bool is_update_enabled = false;
 
   std::size_t create_status_string();
-  void enable_update_scoket();
-  void step_update();
-  std::size_t calc_new_fw_chksum();
 
   void fetch_frame();
   void fetch_frame_unicast_proto();

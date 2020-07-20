@@ -30,6 +30,7 @@ ENTRY(Reset_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
+/* Firmware_Update_Handler function location in flash */
 _firmware_update_handler = ORIGIN(FLASH) + LENGTH(FLASH);
 
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
@@ -137,6 +138,11 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
     
   } >RAM AT> FLASH
+  
+  /* Used to calculate main program flash size */
+  ._main_program : {
+  	_main_program_end = .;
+  } >FLASH
 
   /* Uninitialized data section into "RAM" Ram type memory */
   . = ALIGN(4);

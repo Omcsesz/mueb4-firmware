@@ -13,15 +13,22 @@
 #include <cstdio>
 
 #include "dhcp_buffer.h"
-#include "firm_update.hpp"
 #include "gpios.h"
 #include "mac_eeprom.h"
 #include "main.h"
-#include "stm32_flash.hpp"
 #include "version.hpp"
 #include "window.hpp"
 
+// Defined in linker script
 extern std::uint32_t _firmware_update_handler;
+extern std::uint32_t _main_program_end;
+//
+
+extern CRC_HandleTypeDef hcrc;
+
+// Calculate main program flash size in words
+const std::uint32_t main_program_size =
+    ((std::uint32_t)&_main_program_end - FLASH_BASE) / 4;
 
 namespace {
 void cs_sel() {
@@ -100,7 +107,6 @@ void network::step_network() {
         szoba_szam = netInfo.ip[3];
 
         // Must have IP address to work
-        step_update();
         fetch_frame();
         break;
       case DHCP_FAILED:
@@ -130,71 +136,6 @@ std::size_t network::create_status_string() {
                     netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
                     netInfo.mac[5], window::is_internal_animation_on(),
                     getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
-
-  return (ret >= 0) ? ret : 1;
-}
-
-////////////   FW Update
-
-void network::enable_update_scoket() {
-  LL_RCC_HSI_Enable();
-
-  while (!LL_RCC_HSI_IsReady())
-    ;
-
-  socket(fw_update_socket, Sn_MR_TCP, 1997, 0x00);
-  is_update_enabled = true;
-
-  listen(fw_update_socket);
-
-  std::uint8_t blocking = SOCK_IO_NONBLOCK;
-  ctlsocket(fw_update_socket, CS_SET_IOMODE, &blocking);
-}
-
-void network::step_update() {
-  static std::size_t next_page_to_fetch = 0;
-
-  if (!is_update_enabled) return;
-
-  std::uint8_t status;
-  getsockopt(fw_update_socket, SO_STATUS, &status);
-  if (status != SOCK_ESTABLISHED) return;
-
-  std::array<std::uint8_t, 1024> buff;
-
-  auto buffer_state = recv(fw_update_socket, buff.data(), 1024);
-
-  if (buffer_state == SOCK_BUSY) return;
-
-  stm32_flash::reprogramPage(buff, 32 + next_page_to_fetch);
-
-  next_page_to_fetch++;
-
-  if (next_page_to_fetch == 32) {  // check overflow
-    disconnect(fw_update_socket);
-    is_update_enabled = false;
-    next_page_to_fetch = 0;
-    do {
-      std::uint8_t status;
-      getsockopt(fw_update_socket, SO_STATUS, &status);
-    } while (status == SOCK_ESTABLISHED);
-
-    close(fw_update_socket);
-  }
-}
-
-std::size_t network::calc_new_fw_chksum() {
-  int ret;
-
-  ret = std::snprintf(
-      status_string, sizeof(status_string),
-      "MUEB FW version: %s\n"
-      "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-      "Chksum: %u\n"
-      "SEM forever\n",
-      mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
-      netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
-      static_cast<unsigned>(firmware_update::checksum_of_new_fw()));
 
   return (ret >= 0) ? ret : 1;
 }
@@ -460,15 +401,23 @@ void network::do_remote_command() {
     case ping:
       sendto(command_socket, (std::uint8_t *)"pong", 4, resp_addr, resp_port);
       break;
-    case enable_update: {
+    case start_firmware_update: {
       void *f = (std::uint32_t *)&_firmware_update_handler;
       goto *f;
       break;
     }
-    case get_new_fw_chksum:
-      sendto(command_socket, (std::uint8_t *)status_string,
-             calc_new_fw_chksum(), resp_addr, resp_port);
+    case get_firmware_checksum: {
+      auto crc = HAL_CRC_Calculate(&hcrc, (std::uint32_t *)FLASH_BASE,
+                                   main_program_size);
+      /* __REV for endianness fix
+       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
+       */
+      crc = __REV(~crc);
+
+      sendto(command_socket, (std::uint8_t *)&crc, sizeof(crc), resp_addr,
+             resp_port);
       break;
+    }
     case swap_windows:
       window::swap_windows();
       break;
