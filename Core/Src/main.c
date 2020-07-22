@@ -106,7 +106,6 @@ int main(void)
   MX_TIM17_Init();
   MX_CRC_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim17);
   main_cpp();
   /* USER CODE END 2 */
 
