@@ -50,7 +50,7 @@ void window::step_state() {
       break;
     case vcc_3v3_on:
       if (tick_1s > 1) {
-        if (check_uart_welcome_message()) {
+        if (usart_active) {
           this->set_state(vcc_12v_on);
         } else
           this->set_state(vcc_3v3_off);
@@ -121,8 +121,6 @@ void window::set_state(enum twindow_status new_stat) {
   this->status = new_stat;
 }
 
-bool window::check_uart_welcome_message() { return true; }
-
 void window::update_image() {
   if (!LL_USART_IsActiveFlag_TC(usart)) return;
 
@@ -164,6 +162,8 @@ void window::set_whitebalance_flag(bool value) {
 bool window::get_whitebalance_flag() { return this->whitebalance_flag; }
 
 void window::time_handler() { tick_1s++; }
+
+void window::set_usart_active(bool value) { usart_active = value; }
 
 void window::swap_windows() { windows_swapped = not windows_swapped; }
 

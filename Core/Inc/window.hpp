@@ -114,8 +114,6 @@ class window {
 
   volatile std::uint8_t whitebalance_data[22]{0xE0};
 
-  bool check_uart_welcome_message();
-
   void update_image();
 
   /*!
@@ -126,6 +124,7 @@ class window {
   void set_whitebalance_flag(bool value);
   bool get_whitebalance_flag();
   void time_handler();
+  void set_usart_active(bool value);
 
   static void swap_windows();
   static window& get_window(window_from_outside);
@@ -160,6 +159,7 @@ class window {
    * used to countdown the timeout in panel probing
    */
   std::uint8_t tick_1s{0};
+  bool usart_active{true};
 
   static bool internal_animation_on;
   static bool windows_swapped;
