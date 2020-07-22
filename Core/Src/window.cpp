@@ -42,25 +42,25 @@ std::uint8_t pixel_data::blue() { return m_blue; }
 
 void window::step_state() {
   switch (this->status) {
-    case vcc_12v_on:
-      if (whitebalance_flag) update_whitebalance();
-      this->update_image();
-      break;
-    case vcc_12v_off:
+    case discharge_caps:
+      if (tick_1s > 10) this->set_state(vcc_3v3_on);
       break;
     case vcc_3v3_off:
-      if (tick_1s > 4) this->set_state(vcc_3v3_on);
+      if (tick_1s > 5) this->set_state(vcc_3v3_on);
       break;
     case vcc_3v3_on:
-      if (tick_1s > 1) {  // TODO reference time point
-        if (check_uart_welcome_message())
+      if (tick_1s > 1) {
+        if (check_uart_welcome_message()) {
           this->set_state(vcc_12v_on);
-        else
+        } else
           this->set_state(vcc_3v3_off);
       }
       break;
-    case discharge_caps:
-      if (tick_1s > 10) this->set_state(vcc_3v3_off);
+    case vcc_12v_off:
+      break;
+    case vcc_12v_on:
+      if (whitebalance_flag) update_whitebalance();
+      update_image();
       break;
     default:
       this->set_state(discharge_caps);
@@ -101,23 +101,21 @@ void window::set_state(enum twindow_status new_stat) {
     case discharge_caps:
       tick_1s = 0;
       LL_GPIO_SetOutputPin(gpio_port_3v3, gpio_pin_3v3);
+      LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
     case vcc_3v3_off:
       tick_1s = 0;
       LL_GPIO_SetOutputPin(gpio_port_3v3, gpio_pin_3v3);
-      LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
     case vcc_3v3_on:
       tick_1s = 0;
-      // EMPTY DMA BUFFER
       LL_GPIO_ResetOutputPin(gpio_port_3v3, gpio_pin_3v3);
+      break;
+    case vcc_12v_off:
       LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
     case vcc_12v_on:
       LL_GPIO_SetOutputPin(gpio_port_power, gpio_pin_power);
-      break;
-    case vcc_12v_off:
-      LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
   }
   this->status = new_stat;
