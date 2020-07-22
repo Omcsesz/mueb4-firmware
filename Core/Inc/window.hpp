@@ -125,6 +125,7 @@ class window {
 
   void set_whitebalance_flag(bool value);
   bool get_whitebalance_flag();
+  void time_handler();
 
   static void swap_windows();
   static window& get_window(window_from_outside);
@@ -153,6 +154,12 @@ class window {
   bool transmitted_before;
 
   volatile bool whitebalance_flag;
+
+  /*!
+   * \brief counts the seconds
+   * used to countdown the timeout in panel probing
+   */
+  std::uint8_t tick_1s{0};
 
   static bool internal_animation_on;
   static bool windows_swapped;

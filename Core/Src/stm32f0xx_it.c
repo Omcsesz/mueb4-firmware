@@ -48,7 +48,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-
+void window_time_handler();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -59,14 +59,6 @@
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim17;
 /* USER CODE BEGIN EV */
-/*!
- * \brief counts the seconds
- * used to countdown the timeout in panel probing
- *
- * The declaration is in window.c
- *Updated in stm32f0xx_it.c (TIM17 INT)
- */
-extern uint8_t sec_cntr_window;
 extern uint8_t time_to_next_frame;
 /* USER CODE END EV */
 
@@ -185,7 +177,7 @@ void TIM17_IRQHandler(void)
   /* USER CODE BEGIN TIM17_IRQn 0 */
   DHCP_time_handler();
   LL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin); //TODO to be moved to the main loop
-  sec_cntr_window++;
+  window_time_handler();
   time_to_next_frame = 1;
 
   /* USER CODE END TIM17_IRQn 0 */

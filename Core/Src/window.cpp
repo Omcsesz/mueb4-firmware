@@ -6,10 +6,14 @@
  *  Instance of static members
  *****************************/
 
-std::uint8_t sec_cntr_window = 0;
 std::uint8_t time_to_next_frame = 0;
 bool window::internal_animation_on{true};
 bool window::windows_swapped{false};
+
+extern "C" void window_time_handler() {
+  windows::left_window->time_handler();
+  windows::right_window->time_handler();
+}
 
 /*****************************
  *    Class pixel_data
@@ -45,10 +49,10 @@ void window::step_state() {
     case vcc_12v_off:
       break;
     case vcc_3v3_off:
-      if (sec_cntr_window > 4) this->set_state(vcc_3v3_on);
+      if (tick_1s > 4) this->set_state(vcc_3v3_on);
       break;
     case vcc_3v3_on:
-      if (sec_cntr_window > 1) {  // TODO reference time point
+      if (tick_1s > 1) {  // TODO reference time point
         if (check_uart_welcome_message())
           this->set_state(vcc_12v_on);
         else
@@ -56,7 +60,7 @@ void window::step_state() {
       }
       break;
     case discharge_caps:
-      if (sec_cntr_window > 10) this->set_state(vcc_3v3_off);
+      if (tick_1s > 10) this->set_state(vcc_3v3_off);
       break;
     default:
       this->set_state(discharge_caps);
@@ -95,16 +99,16 @@ void window::set_state(enum twindow_status new_stat) {
     default:
       new_stat = discharge_caps;
     case discharge_caps:
-      sec_cntr_window = 0;
+      tick_1s = 0;
       LL_GPIO_SetOutputPin(gpio_port_3v3, gpio_pin_3v3);
       break;
     case vcc_3v3_off:
-      sec_cntr_window = 0;
+      tick_1s = 0;
       LL_GPIO_SetOutputPin(gpio_port_3v3, gpio_pin_3v3);
       LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
       break;
     case vcc_3v3_on:
-      sec_cntr_window = 0;
+      tick_1s = 0;
       // EMPTY DMA BUFFER
       LL_GPIO_ResetOutputPin(gpio_port_3v3, gpio_pin_3v3);
       LL_GPIO_ResetOutputPin(gpio_port_power, gpio_pin_power);
@@ -160,6 +164,8 @@ void window::set_whitebalance_flag(bool value) {
 }
 
 bool window::get_whitebalance_flag() { return this->whitebalance_flag; }
+
+void window::time_handler() { tick_1s++; }
 
 void window::swap_windows() { windows_swapped = not windows_swapped; }
 
