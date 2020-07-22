@@ -121,34 +121,6 @@ void window::set_state(enum twindow_status new_stat) {
   this->status = new_stat;
 }
 
-void window::update_image() {
-  if (!LL_USART_IsActiveFlag_TC(usart)) return;
-
-  std::size_t transfer_size{0};  // besides the first F0 byte
-  std::size_t i{0};
-
-  for (auto&& pixel : pixels) {
-    if (pixel.isFull()) {
-      pixel.flush();
-      std::uint8_t base = i++ * 3;
-
-      DMA_buffer[++transfer_size] =
-          (std::uint8_t)(base + 0) << 4 | (pixel.red() & 0xE0) >> 5;
-      DMA_buffer[++transfer_size] =
-          (std::uint8_t)(base + 1) << 4 | (pixel.green() & 0xE0) >> 5;
-      DMA_buffer[++transfer_size] =
-          (std::uint8_t)(base + 2) << 4 | (pixel.blue() & 0xE0) >> 5;
-    }
-  }
-
-  if (transfer_size) {
-    LL_DMA_DisableChannel(DMAx, DMA_Channel);
-    LL_DMA_SetDataLength(DMAx, DMA_Channel, transfer_size + 1);
-    LL_USART_ClearFlag_TC(usart);
-    LL_DMA_EnableChannel(DMAx, DMA_Channel);
-  }
-}
-
 void window::blank() {
   for (auto&& pixel : pixels) {
     pixel.set(0, 0, 0);
@@ -220,4 +192,32 @@ void window::update_whitebalance() {
   LL_DMA_SetMemoryAddress(DMAx, DMA_Channel, (std::uint32_t)DMA_buffer);
 
   whitebalance_flag = false;
+}
+
+void window::update_image() {
+  if (!LL_USART_IsActiveFlag_TC(usart) || status < vcc_3v3_on) return;
+
+  std::size_t transfer_size{0};  // besides the first F0 byte
+  std::size_t i{0};
+
+  for (auto&& pixel : pixels) {
+    if (pixel.isFull()) {
+      pixel.flush();
+      std::uint8_t base = i++ * 3;
+
+      DMA_buffer[++transfer_size] =
+          (std::uint8_t)(base + 0) << 4 | (pixel.red() & 0xE0) >> 5;
+      DMA_buffer[++transfer_size] =
+          (std::uint8_t)(base + 1) << 4 | (pixel.green() & 0xE0) >> 5;
+      DMA_buffer[++transfer_size] =
+          (std::uint8_t)(base + 2) << 4 | (pixel.blue() & 0xE0) >> 5;
+    }
+  }
+
+  if (transfer_size) {
+    LL_DMA_DisableChannel(DMAx, DMA_Channel);
+    LL_DMA_SetDataLength(DMAx, DMA_Channel, transfer_size + 1);
+    LL_USART_ClearFlag_TC(usart);
+    LL_DMA_EnableChannel(DMAx, DMA_Channel);
+  }
 }

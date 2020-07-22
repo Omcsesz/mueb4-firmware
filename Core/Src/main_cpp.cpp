@@ -29,9 +29,6 @@ extern "C" void main_cpp() {
     left_window.step_state();
     right_window.step_state();
 
-    left_window.update_image();
-    right_window.update_image();
-
     if (LL_GPIO_IsInputPinSet(USER_INPUT_BUTTON_GPIO_Port,
                               USER_INPUT_BUTTON_Pin)) {
       // TODO do sg

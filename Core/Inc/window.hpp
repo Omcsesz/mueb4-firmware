@@ -65,8 +65,8 @@ class window {
   enum twindow_status {
     discharge_caps,
     vcc_3v3_off,  // waiting for plug
-    vcc_3v3_on,   // waiting for comm
     vcc_12v_off,  // panel turned off remotely
+    vcc_3v3_on,   // waiting for comm
     vcc_12v_on    // comm ok
   };
 
@@ -113,8 +113,6 @@ class window {
   std::array<pixel_data, num_of_pixels> pixels;
 
   volatile std::uint8_t whitebalance_data[22]{0xE0};
-
-  void update_image();
 
   /*!
    * \brief Blanks every panel connected to the window.
@@ -165,6 +163,7 @@ class window {
   static bool windows_swapped;
 
   void update_whitebalance();
+  void update_image();
 };
 
 namespace windows {
