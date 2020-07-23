@@ -118,6 +118,7 @@ void network::step_network() {
   } else {
     reset_gpio(LED_JOKER);
     reset_gpio(LED_DHCP);
+    DHCP_rebind();
   }
 }
 
