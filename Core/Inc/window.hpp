@@ -86,12 +86,6 @@ class window {
   std::array<pixel_data, num_of_pixels> pixels;
 
   window() = delete;
-  window(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
-         GPIO_TypeDef* const gpio_port_power,
-         const std::uint16_t gpio_pin_power, GPIO_TypeDef* const gpio_port_tx,
-         const std::uint16_t gpio_pin_tx, USART_TypeDef* const USARTx,
-         DMA_TypeDef* const DMAx, const std::uint32_t dma_tx_channel);
-
   window(const window&) = delete;
   window& operator=(const window&) = delete;
 
@@ -129,6 +123,8 @@ class window {
 
   static void swap_windows();
 
+  static window& get_left_window();
+  static window& get_right_window();
   static window& get_window(window_from_outside);
 
   static void step_anim();
@@ -154,11 +150,11 @@ class window {
 
   static bool windows_swapped;
 
+  window(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
+         GPIO_TypeDef* const gpio_port_power,
+         const std::uint16_t gpio_pin_power, GPIO_TypeDef* const gpio_port_tx,
+         const std::uint16_t gpio_pin_tx, USART_TypeDef* const USARTx,
+         DMA_TypeDef* const DMAx, const std::uint32_t dma_tx_channel);
   void update_whitebalance();
   void update_image();
 };
-
-namespace windows {
-extern window* left_window;
-extern window* right_window;
-};  // namespace windows

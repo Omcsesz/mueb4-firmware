@@ -9,8 +9,8 @@ bool window::internal_animation_on{true};
 bool window::windows_swapped{false};
 
 extern "C" void window_time_handler() {
-  windows::left_window->time_handler();
-  windows::right_window->time_handler();
+  window::get_left_window().time_handler();
+  window::get_right_window().time_handler();
 }
 
 /*****************************
@@ -37,28 +37,6 @@ std::uint8_t pixel_data::blue() { return m_blue; }
 /*****************************
  *    Class window
  *****************************/
-
-window::window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
-               GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
-               GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
-               USART_TypeDef* USARTx, DMA_TypeDef* DMAx,
-               std::uint32_t dma_tx_channel)
-    : gpio_port_3v3(gpio_port_3v3),
-      gpio_port_tx(gpio_port_tx),
-      gpio_port_power(gpio_port_power),
-      DMAx(DMAx),
-      USARTx(USARTx),
-      dma_tx_channel(dma_tx_channel),
-      gpio_pin_3v3(gpio_pin_3v3),
-      gpio_pin_tx(gpio_pin_tx),
-      gpio_pin_power(gpio_pin_power) {
-  LL_DMA_SetPeriphAddress(DMAx, dma_tx_channel, (uint32_t)&USARTx->TDR);
-  LL_DMA_SetMemoryAddress(DMAx, dma_tx_channel, (std::uint32_t)dma_tx_buffer);
-  LL_DMA_SetDataLength(DMAx, dma_tx_channel, 13);
-  LL_USART_EnableDMAReq_TX(USARTx);
-
-  set_state(discharge_caps);
-};
 
 void window::step_state() {
   switch (status) {
@@ -128,13 +106,31 @@ void window::set_usart_active(bool value) { usart_active = value; }
 
 void window::swap_windows() { windows_swapped = not windows_swapped; }
 
+window& window::get_left_window() {
+  static window left(WINDOW_3V3_LEFT_GPIO_Port, WINDOW_3V3_LEFT_Pin,
+                     WINDOW_POWER_LEFT_GPIO_Port, WINDOW_POWER_LEFT_Pin,
+                     WINDOW_TX_LEFT_GPIO_Port, WINDOW_TX_LEFT_Pin, USART2, DMA1,
+                     LL_DMA_CHANNEL_4);
+
+  return left;
+}
+
+window& window::get_right_window() {
+  static window right(WINDOW_3V3_RIGHT_GPIO_Port, WINDOW_3V3_RIGHT_Pin,
+                      WINDOW_POWER_RIGHT_GPIO_Port, WINDOW_POWER_RIGHT_Pin,
+                      WINDOW_TX_RIGHT_GPIO_Port, WINDOW_TX_RIGHT_Pin, USART1,
+                      DMA1, LL_DMA_CHANNEL_2);
+
+  return right;
+}
+
 window& window::get_window(window_from_outside w) {
   const bool target = w xor windows_swapped;
 
   if (target == LEFT)
-    return *windows::right_window;
+    return window::get_right_window();
   else
-    return *windows::left_window;
+    return window::get_left_window();
 }
 
 void window::step_anim() {
@@ -147,10 +143,10 @@ void window::step_anim() {
 
   for (std::size_t k = 0; k < window::num_of_pixels; k++) {
     std::uint8_t j = i << 5;
-    windows::right_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
-                                         szin == 2 ? j : 0);
-    windows::left_window->pixels[k].set(szin == 0 ? j : 0, szin == 1 ? j : 0,
-                                        szin == 2 ? j : 0);
+    window::get_right_window().pixels[k].set(
+        szin == 0 ? j : 0, szin == 1 ? j : 0, szin == 2 ? j : 0);
+    window::get_left_window().pixels[k].set(
+        szin == 0 ? j : 0, szin == 1 ? j : 0, szin == 2 ? j : 0);
   }
 
   i++;
@@ -158,6 +154,28 @@ void window::step_anim() {
   if (i == 0) szin++;
   if (szin == 3) szin = 0;
 }
+
+window::window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
+               GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
+               GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
+               USART_TypeDef* USARTx, DMA_TypeDef* DMAx,
+               std::uint32_t dma_tx_channel)
+    : gpio_port_3v3(gpio_port_3v3),
+      gpio_port_tx(gpio_port_tx),
+      gpio_port_power(gpio_port_power),
+      DMAx(DMAx),
+      USARTx(USARTx),
+      dma_tx_channel(dma_tx_channel),
+      gpio_pin_3v3(gpio_pin_3v3),
+      gpio_pin_tx(gpio_pin_tx),
+      gpio_pin_power(gpio_pin_power) {
+  LL_DMA_SetPeriphAddress(DMAx, dma_tx_channel, (uint32_t)&USARTx->TDR);
+  LL_DMA_SetMemoryAddress(DMAx, dma_tx_channel, (std::uint32_t)dma_tx_buffer);
+  LL_DMA_SetDataLength(DMAx, dma_tx_channel, 13);
+  LL_USART_EnableDMAReq_TX(USARTx);
+
+  set_state(discharge_caps);
+};
 
 void window::update_whitebalance() {
   LL_DMA_DisableChannel(DMAx, dma_tx_channel);
