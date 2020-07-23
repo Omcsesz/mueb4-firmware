@@ -26,11 +26,11 @@ extern std::uint32_t _main_program_end;
 
 extern CRC_HandleTypeDef hcrc;
 
+namespace {
 // Calculate main program flash size in words
 const std::uint32_t main_program_size =
     ((std::uint32_t)&_main_program_end - FLASH_BASE) / 4;
 
-namespace {
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
 }
@@ -93,7 +93,7 @@ void network::step_network() {
     set_gpio(LED_JOKER);
 
     // Can be used without IP address
-    do_remote_command();
+    if (getSn_RX_RSR(command_socket) > 0) do_remote_command();
 
     // do DHCP task
     switch (DHCP_run()) {
@@ -103,8 +103,8 @@ void network::step_network() {
         set_gpio(LED_DHCP);
 
         wizchip_getnetinfo(&netInfo);
-        emelet_szam = netInfo.ip[2];
-        szoba_szam = netInfo.ip[3];
+        level_number = netInfo.ip[2];
+        room_number = netInfo.ip[3];
 
         // Must have IP address to work
         fetch_frame();
@@ -125,7 +125,7 @@ std::size_t network::create_status_string() {
   int ret;
 
   ret =
-      std::snprintf((char *)status_string, sizeof(status_string),
+      std::snprintf(status_string, sizeof(status_string),
                     "MUEB FW version: %s\n"
                     "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
                     "anim_source: %#x\n"
@@ -137,66 +137,54 @@ std::size_t network::create_status_string() {
                     netInfo.mac[5], window::internal_animation_on,
                     getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
 
-  return (ret >= 0) ? ret : 1;
+  return (ret >= 0) ? ret : 0;
 }
 
 void network::fetch_frame_unicast_proto() {
-  auto size = getSn_RX_RSR(unicast_socket);
-
-  if (size == 0) return;
-
   window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
 
   std::uint8_t buff[5]{};
-  size = sizeof(buff);
   std::uint8_t svr_addr[4];
   std::uint16_t svr_port;
+  std::uint8_t pixel_num{buff[1]};
 
-  if (recvfrom(unicast_socket, buff, size, svr_addr, &svr_port) < size ||
-      buff[0] >= 2 || buff[1] >= 4)
+  if (recvfrom(unicast_socket, buff, sizeof(buff), svr_addr, &svr_port) < 5 ||
+      pixel_num >= window::num_of_pixels)
     return;
 
-  bool window = buff[0];
-  std::uint8_t pixel_num = buff[1];
-  std::uint8_t red = buff[2];
-  std::uint8_t green = buff[3];
-  std::uint8_t blue = buff[4];
-
+  bool window{buff[0]};
   window::get_window(static_cast<window::window_from_outside>(window))
       .pixels[pixel_num]
-      .set(red, green, blue);
+      .set(buff[2], buff[3], buff[4]);
 }
 
 void network::fetch_frame_multicast_proto() {
-  auto size = getSn_RX_RSR(multicast_socket);
-  const std::uint8_t szint = emelet_szam;
-  const std::uint8_t szoba = szoba_szam;
-
-  if (size == 0 || szint == 0 || szoba == 0) return;
-
   window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
 
+  const std::uint8_t level{level_number};
+  const std::uint8_t room{room_number};
   std::uint8_t buff[1500]{};
   std::uint8_t svr_addr[4];
   std::uint16_t svr_port;
 
-  size = recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port);
+  auto size{
+      recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port)};
 
   if ((buff[0] != 0x01 && buff[0] != 0x02) || (buff[0] == 0x01 && size < 314) ||
       (buff[0] == 0x02 && size < 1250))
     return;
 
-  auto &first_window = window::get_window(window::LEFT);
-  auto &second_window = window::get_window(window::RIGHT);
+  auto &first_window{window::get_window(window::LEFT)};
+  auto &second_window{window::get_window(window::RIGHT)};
 
-  std::uint8_t r, g, b;
+  std::uint8_t r{0}, g{0}, b{0};
 
-  std::uint32_t base_offset = 0;
-  std::size_t running_offset = 0;
+  std::uint32_t base_offset{0};
+  std::size_t running_offset{0};
 
   if (buff[0] == 0x01) {
     /* Read compressed pixels window wise from frame buffer
@@ -206,8 +194,8 @@ void network::fetch_frame_multicast_proto() {
      * room column * 2 pixel vertically
      * 52 window per packet
      */
-    std::uint8_t pn_expected = (((18 - szint) * 16 + (szoba - 5) * 2) / 52);
-    std::uint8_t pn = buff[1];
+    std::uint8_t pn_expected = ((18 - level) * 16 + (room - 5) * 2) / 52;
+    std::uint8_t pn{buff[1]};
 
     if (pn != pn_expected) return;
 
@@ -218,7 +206,7 @@ void network::fetch_frame_multicast_proto() {
      * 12 byte per window
      * 2 byte packet header
      */
-    base_offset = (((18 - szint) * 8 + (szoba - 5)) % 26) * 12 + 2;
+    base_offset = (((18 - level) * 8 + (room - 5)) % 26) * 12 + 2;
 
     //----------------------------------
 
@@ -272,7 +260,7 @@ void network::fetch_frame_multicast_proto() {
      * 3 byte per unit
      * 2 byte packet header
      */
-    base_offset = ((18 - szint) * 32 + (szoba - 5) * 2) * 3 + 2;
+    base_offset = ((18 - level) * 32 + (room - 5) * 2) * 3 + 2;
 
     r = (buff[(base_offset + running_offset)] & 0xf0);
     g = (buff[(base_offset + running_offset++)] & 0x0f) << 5;
@@ -322,22 +310,22 @@ void network::fetch_frame_multicast_proto() {
 }
 
 void network::fetch_frame() {
-  fetch_frame_multicast_proto();
-  fetch_frame_unicast_proto();
+  if (getSn_RX_RSR(multicast_socket) > 0 || level_number == 0 ||
+      room_number == 0)
+    fetch_frame_multicast_proto();
+
+  if (getSn_RX_RSR(unicast_socket) > 0) fetch_frame_unicast_proto();
 }
 
 void network::do_remote_command() {
-  auto size = getSn_RX_RSR(command_socket);
-
-  if (size == 0) return;
-
   toogle_gpio(LED_COMM);
 
   std::uint8_t buff[32]{};
   std::uint8_t resp_addr[4];
   std::uint16_t resp_port;
 
-  size = recvfrom(command_socket, buff, sizeof(buff), resp_addr, &resp_port);
+  auto size{
+      recvfrom(command_socket, buff, sizeof(buff), resp_addr, &resp_port)};
 
   // Handle too small and incorrect packages
   if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || size < 4) return;
@@ -353,7 +341,7 @@ void network::do_remote_command() {
         netInfo.mac[4] != buff[9] || netInfo.mac[5] != buff[10])
       return;  // return when the MAC address doesn't match
 
-    // If the IP is 0.0.0.0 use broadcast target address
+    // If the device's IP is 0.0.0.0 use broadcast target address
     if (!netInfo.ip[0] && !netInfo.ip[1] && !netInfo.ip[2] && !netInfo.ip[3])
       resp_addr[0] = resp_addr[1] = resp_addr[2] = resp_addr[3] = 255;
   }
@@ -366,8 +354,8 @@ void network::do_remote_command() {
       window::internal_animation_on = true;
       break;
     case blank:
-      window::get_window(window::LEFT).blank();
-      window::get_window(window::RIGHT).blank();
+      window::get_left_window().blank();
+      window::get_right_window().blank();
       break;
     case turn_12v_off_left:
       window::get_window(window::LEFT).set_state(window::vcc_12v_off);

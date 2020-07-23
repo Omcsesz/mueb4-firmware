@@ -46,10 +46,10 @@ class network {
   static constexpr std::uint8_t dhcp_socket{7};
   wiz_NetInfo netInfo;
 
-  std::uint8_t emelet_szam{0};
-  std::uint8_t szoba_szam{0};
+  std::uint8_t level_number{0};
+  std::uint8_t room_number{0};
 
-  char status_string[512];
+  char status_string[512]{};
 
   std::size_t create_status_string();
 
