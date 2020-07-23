@@ -24,7 +24,7 @@ extern "C" void main_cpp() {
   while (1) {
     inetwork.step_network();
 
-    if (window::is_internal_animation_on()) window::step_anim();
+    if (window::internal_animation_on) window::step_anim();
 
     left_window.step_state();
     right_window.step_state();

@@ -70,15 +70,27 @@ class window {
     vcc_12v_on    // comm ok
   };
 
-  enum window_from_outside : bool { LEFT = false, RIGHT = true };
-
   static constexpr std::size_t num_of_pixels{4};
 
+  enum window_from_outside : bool { LEFT = false, RIGHT = true };
+
+  std::uint8_t whitebalance_data[22]{0xE0};
+  bool whitebalance_flag{false};
+  bool usart_active{true};
+
+  static bool internal_animation_on;
+
+  /*!
+   * \brief stores the status of each window
+   */
+  std::array<pixel_data, num_of_pixels> pixels;
+
   window() = delete;
-  window(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
-         GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
-         GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
-         USART_TypeDef* USARTx, DMA_TypeDef* DMAx, std::uint32_t DMA_Channel);
+  window(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
+         GPIO_TypeDef* const gpio_port_power,
+         const std::uint16_t gpio_pin_power, GPIO_TypeDef* const gpio_port_tx,
+         const std::uint16_t gpio_pin_tx, USART_TypeDef* const USARTx,
+         DMA_TypeDef* const DMAx, const std::uint32_t dma_tx_channel);
 
   window(const window&) = delete;
   window& operator=(const window&) = delete;
@@ -96,7 +108,7 @@ class window {
    * @param w which window's status to be returned
    * @return the status of the window asked in the argument line
    */
-  twindow_status get_state();
+  twindow_status get_state() const;
 
   /*!
    * \brief changes the state of the window passed on the argument line and do
@@ -105,61 +117,41 @@ class window {
    * @param w The window which status is to be changed
    */
 
-  void set_state(twindow_status);
-
-  /*!
-   * \brief stores the status of each window
-   */
-  std::array<pixel_data, num_of_pixels> pixels;
-
-  volatile std::uint8_t whitebalance_data[22]{0xE0};
+  void set_state(twindow_status state);
 
   /*!
    * \brief Blanks every panel connected to the window.
    */
   void blank();
 
-  void set_whitebalance_flag(bool value);
-  bool get_whitebalance_flag();
   void time_handler();
   void set_usart_active(bool value);
 
   static void swap_windows();
-  static window& get_window(window_from_outside);
 
-  static void turn_internal_anim_on();
-  static void turn_internal_anim_off();
-  static bool is_internal_animation_on();
+  static window& get_window(window_from_outside);
 
   static void step_anim();
 
  private:
   twindow_status status;
 
-  GPIO_TypeDef* gpio_port_3v3;
-  GPIO_TypeDef* gpio_port_tx;
-  GPIO_TypeDef* gpio_port_power;  // TODO add const keyword
-  std::uint16_t gpio_pin_3v3, gpio_pin_tx,
-      gpio_pin_power;  // TODO add const keyword
+  GPIO_TypeDef* const gpio_port_3v3;
+  GPIO_TypeDef* const gpio_port_tx;
+  GPIO_TypeDef* const gpio_port_power;
+  DMA_TypeDef* const DMAx;
+  USART_TypeDef* const USARTx;
+  const std::uint32_t dma_tx_channel;
+  const std::uint16_t gpio_pin_3v3, gpio_pin_tx, gpio_pin_power;
 
-  DMA_TypeDef* DMAx;
-  std::uint32_t DMA_Channel;
-  USART_TypeDef* usart;
-
-  std::uint8_t DMA_buffer[13]{0xF0};
-
-  bool transmitted_before;
-
-  volatile bool whitebalance_flag;
+  std::uint8_t dma_tx_buffer[13]{0xF0};
 
   /*!
    * \brief counts the seconds
    * used to countdown the timeout in panel probing
    */
   std::uint8_t tick_1s{0};
-  bool usart_active{true};
 
-  static bool internal_animation_on;
   static bool windows_swapped;
 
   void update_whitebalance();

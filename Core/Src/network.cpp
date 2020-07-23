@@ -134,7 +134,7 @@ std::size_t network::create_status_string() {
                     "SEM forever\n",
                     mueb_version, netInfo.mac[0], netInfo.mac[1],
                     netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
-                    netInfo.mac[5], window::is_internal_animation_on(),
+                    netInfo.mac[5], window::internal_animation_on,
                     getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
 
   return (ret >= 0) ? ret : 1;
@@ -145,7 +145,7 @@ void network::fetch_frame_unicast_proto() {
 
   if (size == 0) return;
 
-  window::turn_internal_anim_off();
+  window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
 
@@ -176,7 +176,7 @@ void network::fetch_frame_multicast_proto() {
 
   if (size == 0 || szint == 0 || szoba == 0) return;
 
-  window::turn_internal_anim_off();
+  window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
 
@@ -360,10 +360,10 @@ void network::do_remote_command() {
 
   switch (buff[3]) {
     case use_external_anim:
-      window::turn_internal_anim_off();
+      window::internal_animation_on = false;
       break;
     case use_internal_anim:
-      window::turn_internal_anim_on();
+      window::internal_animation_on = true;
       break;
     case blank:
       window::get_window(window::LEFT).blank();
@@ -426,8 +426,8 @@ void network::do_remote_command() {
         window::get_window(window::LEFT).whitebalance_data[i] = buff[10 + i];
         window::get_window(window::RIGHT).whitebalance_data[i] = buff[10 + i];
       }
-      window::get_window(window::LEFT).set_whitebalance_flag(true);
-      window::get_window(window::RIGHT).set_whitebalance_flag(true);
+      window::get_window(window::LEFT).whitebalance_flag = true;
+      window::get_window(window::RIGHT).whitebalance_flag = true;
       break;
     default:
       break;
