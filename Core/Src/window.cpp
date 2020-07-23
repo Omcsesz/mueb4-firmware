@@ -205,7 +205,7 @@ void window::update_image() {
   for (auto&& pixel : pixels) {
     if (pixel.isFull()) {
       pixel.flush();
-      std::uint8_t base = i++ * 3;
+      std::uint8_t base = i * 3;
 
       dma_tx_buffer[++transfer_size] =
           (std::uint8_t)(base + 0) << 4 | (pixel.red() & 0xE0) >> 5;
@@ -214,6 +214,8 @@ void window::update_image() {
       dma_tx_buffer[++transfer_size] =
           (std::uint8_t)(base + 2) << 4 | (pixel.blue() & 0xE0) >> 5;
     }
+
+    i++;
   }
 
   if (transfer_size) {
