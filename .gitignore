@@ -153,6 +153,7 @@ Release/
 build/
 FirmwareUpdate/
 FirmwareUpdateDebug/
+Drivers/
 
 # Code Recommenders
 \.vscode/
