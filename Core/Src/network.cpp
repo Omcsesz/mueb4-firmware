@@ -149,12 +149,12 @@ void network::fetch_frame_unicast_proto() {
   std::uint8_t buff[5]{};
   std::uint8_t svr_addr[4];
   std::uint16_t svr_port;
-  std::uint8_t pixel_num{buff[1]};
 
   if (recvfrom(unicast_socket, buff, sizeof(buff), svr_addr, &svr_port) < 5 ||
-      pixel_num >= window::num_of_pixels)
+      buff[1] >= window::num_of_pixels)
     return;
 
+  std::uint8_t pixel_num{buff[1]};
   bool window{buff[0]};
   window::get_window(static_cast<window::window_from_outside>(window))
       .pixels[pixel_num]
