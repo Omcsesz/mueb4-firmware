@@ -1,9 +1,18 @@
+/**
+ * This file contains the c++ main loop
+ * @file
+ */
+
 #include "main.h"
 #include "network.hpp"
 #include "window.hpp"
 
 extern TIM_HandleTypeDef htim17;
 
+/**
+ * C++ main loop.
+ * Can be called from C
+ */
 extern "C" void main_cpp() {
   network inetwork;
   auto& left_window{window::get_left_window()};

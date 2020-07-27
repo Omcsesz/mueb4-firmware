@@ -1,3 +1,10 @@
+/**
+ * This file contains firmware update functionality.
+ * The file is located at the end of flash, separated from main program area.
+ * @file
+ * @author Zsombor Bodnár
+ */
+
 #include <socket.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,14 +14,17 @@
 #include "gpios.h"
 #include "main.h"
 
+/// WIZnet chip select
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
 }
 
+/// WIZnet chip deselect
 void cs_desel() {
   set_gpio(SPI1_NSS);  // ChipSelect to high
 }
 
+/// Read byte from WIZnet chip through SPI
 uint8_t spi_rb(void) {
   while (LL_SPI_IsActiveFlag_RXNE(SPI1))
     LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
@@ -30,6 +40,7 @@ uint8_t spi_rb(void) {
   return (LL_SPI_ReceiveData8(SPI1));
 }
 
+/// Write byte to WIZnet chip through SPI
 void spi_wb(uint8_t b) {
   while (!LL_SPI_IsActiveFlag_TXE(SPI1))
     ;
@@ -37,6 +48,7 @@ void spi_wb(uint8_t b) {
   LL_SPI_TransmitData8(SPI1, b);
 }
 
+/// Manages firmware update process.
 void firmware_update() {
   __disable_irq();
 

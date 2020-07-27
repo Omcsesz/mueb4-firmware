@@ -1,11 +1,15 @@
+/// @file
+
 #include "mac_eeprom.h"
 
 #include "main.h"
 
-// 24AA02E48T-I/OT
-
 extern I2C_HandleTypeDef hi2c2;
+
+/// EEPROM I2C device address
 const uint8_t eeprom_address = 0b10100001;
+
+/// EUI-48 value's start address
 const uint16_t eui48_start_addr = 0xFA;
 
 void getMAC(uint8_t* dest) {

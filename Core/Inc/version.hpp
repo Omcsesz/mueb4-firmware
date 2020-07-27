@@ -1,8 +1,8 @@
-/*
- * version.hpp
- *
- *  Created on: May 30, 2018
- *      Author: kisada
+/**
+ * Contains current firmware version.
+ * @file
+ * @author Ádám Kiss
+ * @author Zsombor Bodnár
  */
 
 #pragma once

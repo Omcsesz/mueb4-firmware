@@ -1,3 +1,10 @@
+/**
+ * Helper functions for LL GPIO driver.
+ * @file
+ * @author Ádám Kiss
+ * @author Zsombor Bodnár
+ */
+
 #pragma once
 
 #ifdef __cplusplus
@@ -21,8 +28,7 @@ enum output_gpioes {
   WINDOW_3V3_LEFT
 };
 
-void reset_gpio(enum output_gpioes);  // ,,---- this is a high level interface
-                                      // for GPIO handle
+void reset_gpio(enum output_gpioes);
 #define reset_gpio(x) LL_GPIO_ResetOutputPin(x##_GPIO_Port, x##_Pin);
 
 void set_gpio(enum output_gpioes);
