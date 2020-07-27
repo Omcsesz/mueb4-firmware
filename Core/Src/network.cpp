@@ -1,8 +1,7 @@
-/*
- * network.c
- *
- *  Created on: Apr 7, 2018
- *      Author: kisada
+/**
+ * @file
+ * @author Ádám Kiss
+ * @author Zsombor Bodnár
  */
 
 #include "network.hpp"
@@ -19,10 +18,11 @@
 #include "version.hpp"
 #include "window.hpp"
 
-// Defined in linker script
+///@{
+/// Defined in linker script
 extern std::uint32_t _firmware_update_handler;
 extern std::uint32_t _main_program_end;
-//
+///@}
 
 extern CRC_HandleTypeDef hcrc;
 
@@ -31,14 +31,17 @@ namespace {
 const std::uint32_t main_program_size =
     ((std::uint32_t)&_main_program_end - FLASH_BASE) / 4;
 
+/// WIZnet chip select
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
 }
 
+/// WIZnet chip deselect
 void cs_desel() {
   set_gpio(SPI1_NSS);  // ChipSelect to high
 }
 
+/// Read byte from WIZnet chip through SPI
 std::uint8_t spi_rb(void) {
   while (LL_SPI_IsActiveFlag_RXNE(SPI1))
     LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
@@ -54,6 +57,7 @@ std::uint8_t spi_rb(void) {
   return (LL_SPI_ReceiveData8(SPI1));
 }
 
+/// Write byte to WIZnet chip through SPI
 void spi_wb(std::uint8_t b) {
   while (!LL_SPI_IsActiveFlag_TXE(SPI1))
     ;
@@ -385,7 +389,6 @@ void network::do_remote_command() {
       sendto(command_socket, (std::uint8_t *)mac, 17, resp_addr, resp_port);
       break;
     case delete_anim_network_buffer:
-      /// To be implemented TODO
       break;
     case ping:
       sendto(command_socket, (std::uint8_t *)"pong", 4, resp_addr, resp_port);
