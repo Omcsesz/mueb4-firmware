@@ -120,7 +120,6 @@ class window {
    * @see ::TIM17_IRQHandler
    */
   void time_handler();
-  void set_usart_active(bool value);
 
   /**
    * Swap windows.

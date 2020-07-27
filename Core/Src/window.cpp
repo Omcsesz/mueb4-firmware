@@ -116,8 +116,6 @@ void window::blank() {
 
 void window::time_handler() { tick_1s++; }
 
-void window::set_usart_active(bool value) { usart_active = value; }
-
 void window::swap_windows() { windows_swapped = not windows_swapped; }
 
 window& window::get_left_window() {
