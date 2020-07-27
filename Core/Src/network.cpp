@@ -85,7 +85,7 @@ network::network() {
 
   socket(command_socket, Sn_MR_UDP, 2000, 0x00);
   socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
-  socket(multicast_socket, Sn_MR_UDP, 10000, 0x00);
+  socket(broadcast_socket, Sn_MR_UDP, 10000, 0x00);
 }
 
 void network::step_network() {
@@ -161,7 +161,7 @@ void network::fetch_frame_unicast_proto() {
       .set(buff[2], buff[3], buff[4]);
 }
 
-void network::fetch_frame_multicast_proto() {
+void network::fetch_frame_broadcast_proto() {
   window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
@@ -173,7 +173,7 @@ void network::fetch_frame_multicast_proto() {
   std::uint16_t svr_port;
 
   auto size{
-      recvfrom(multicast_socket, buff, sizeof(buff), svr_addr, &svr_port)};
+      recvfrom(broadcast_socket, buff, sizeof(buff), svr_addr, &svr_port)};
 
   if ((buff[0] != 0x01 && buff[0] != 0x02) || (buff[0] == 0x01 && size < 314) ||
       (buff[0] == 0x02 && size < 1250))
@@ -311,9 +311,9 @@ void network::fetch_frame_multicast_proto() {
 }
 
 void network::fetch_frame() {
-  if (getSn_RX_RSR(multicast_socket) > 0 || level_number == 0 ||
+  if (getSn_RX_RSR(broadcast_socket) > 0 || level_number == 0 ||
       room_number == 0)
-    fetch_frame_multicast_proto();
+    fetch_frame_broadcast_proto();
 
   if (getSn_RX_RSR(unicast_socket) > 0) fetch_frame_unicast_proto();
 }
