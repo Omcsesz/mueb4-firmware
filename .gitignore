@@ -154,6 +154,7 @@ build/
 FirmwareUpdate/
 FirmwareUpdateDebug/
 Drivers/
+Doc/
 
 # Code Recommenders
 \.vscode/
