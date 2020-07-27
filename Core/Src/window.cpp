@@ -1,13 +1,27 @@
+/**
+ * @file
+ * @author Ádám Kiss
+ * @author Zsombor Bodnár
+ */
+
 #include "window.hpp"
 
 /*****************************
  *  Instance of static members
  *****************************/
 
+/**
+ * Used for window#step_anim
+ * @see ::TIM17_IRQHandler
+ */
 std::uint8_t time_to_next_frame = 0;
 bool window::internal_animation_on{true};
 bool window::windows_swapped{false};
 
+/**
+ * Calls window#time_handler
+ * @see ::TIM17_IRQHandler
+ */
 extern "C" void window_time_handler() {
   window::get_left_window().time_handler();
   window::get_right_window().time_handler();
