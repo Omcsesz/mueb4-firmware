@@ -22,7 +22,7 @@ Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the 
 
 ### Generating code
 
-Open **matrix4_mueb_fw.ioc**
+Open **matrix4_mueb_fw.ioc** from **STM32CubeIDE**
 
 Project->Generate code(ALT+K)
 
