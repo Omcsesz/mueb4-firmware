@@ -84,6 +84,10 @@ network::network() {
   setSHAR(netInfo.mac);
   netInfo.dhcp = NETINFO_DHCP;
 
+  // Set all capable, Auto-negotiation enabled
+  wiz_PhyConf_t phyconf = {.by = PHY_CONFBY_SW, .mode = PHY_MODE_AUTONEGO};
+  wizphy_setphyconf(&phyconf);
+
   // DHCP 1s timer located in stm32f0xx_it.c
   DHCP_init(dhcp_socket, gDATABUF);
 
