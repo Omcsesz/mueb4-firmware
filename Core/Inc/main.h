@@ -83,6 +83,7 @@ void Error_Handler(void);
 #define SPI1_NSS_GPIO_Port GPIOA
 #define W5500_INT_Pin LL_GPIO_PIN_0
 #define W5500_INT_GPIO_Port GPIOB
+#define W5500_INT_EXTI_IRQn EXTI0_1_IRQn
 #define W5500_RESET_Pin LL_GPIO_PIN_1
 #define W5500_RESET_GPIO_Port GPIOB
 #define USER_INPUT_BUTTON_Pin LL_GPIO_PIN_2
