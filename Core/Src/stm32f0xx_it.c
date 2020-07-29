@@ -63,7 +63,7 @@ extern uint8_t time_to_next_frame;
 /* USER CODE END EV */
 
 /******************************************************************************/
-/*           Cortex-M0 Processor Interruption and Exception Handlers          */ 
+/*           Cortex-M0 Processor Interruption and Exception Handlers          */
 /******************************************************************************/
 /**
   * @brief This function handles Non maskable interrupt.
@@ -149,7 +149,7 @@ void DMA1_Channel2_3_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
   LL_DMA_ClearFlag_GI2(DMA1);
   /* USER CODE END DMA1_Channel2_3_IRQn 0 */
-  
+
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
 
   /* USER CODE END DMA1_Channel2_3_IRQn 1 */
@@ -163,7 +163,7 @@ void DMA1_Channel4_5_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 0 */
   LL_DMA_ClearFlag_GI4(DMA1);
   /* USER CODE END DMA1_Channel4_5_IRQn 0 */
-  
+
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 1 */
 
   /* USER CODE END DMA1_Channel4_5_IRQn 1 */
