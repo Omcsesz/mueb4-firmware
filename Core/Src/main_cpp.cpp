@@ -27,10 +27,5 @@ extern "C" void main_cpp() {
 
     left_window.step_state();
     right_window.step_state();
-
-    if (LL_GPIO_IsInputPinSet(USER_INPUT_BUTTON_GPIO_Port,
-                              USER_INPUT_BUTTON_Pin)) {
-      // TODO do sg
-    }
   }
 }

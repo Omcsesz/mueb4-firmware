@@ -49,6 +49,7 @@
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 void window_time_handler();
+void window_internal_animation_toggle();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -153,7 +154,7 @@ void EXTI2_3_IRQHandler(void)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
     /* USER CODE BEGIN LL_EXTI_LINE_2 */
-
+    window_internal_animation_toggle();
     /* USER CODE END LL_EXTI_LINE_2 */
   }
   /* USER CODE BEGIN EXTI2_3_IRQn 1 */

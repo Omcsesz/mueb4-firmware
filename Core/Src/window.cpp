@@ -15,7 +15,7 @@
  * @see ::TIM17_IRQHandler
  */
 std::uint8_t time_to_next_frame = 0;
-bool window::internal_animation_on{true};
+bool window::internal_animation_on{false};
 bool window::windows_swapped{false};
 
 /**
@@ -25,6 +25,19 @@ bool window::windows_swapped{false};
 extern "C" void window_time_handler() {
   window::get_left_window().time_handler();
   window::get_right_window().time_handler();
+}
+
+/**
+ * Used for GPIO USER_INPUT_BUTTON
+ * @see ::EXTI2_3_IRQHandler
+ */
+extern "C" void window_internal_animation_toggle() {
+  if (window::internal_animation_on) {
+    window::get_left_window().blank();
+    window::get_right_window().blank();
+  }
+
+  window::internal_animation_on = !window::internal_animation_on;
 }
 
 /*****************************

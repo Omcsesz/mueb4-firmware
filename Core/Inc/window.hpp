@@ -46,9 +46,9 @@ class pixel_data {
   std::uint8_t blue();   ///< Gets blue color value
 
  private:
-  std::uint8_t m_red{0};      ///< Stores red color value
-  std::uint8_t m_green{200};  ///< Stores green color value
-  std::uint8_t m_blue{0};     ///< Stores blue color value
+  std::uint8_t m_red{0};    ///< Stores red color value
+  std::uint8_t m_green{0};  ///< Stores green color value
+  std::uint8_t m_blue{0};   ///< Stores blue color value
 };
 
 /// Manages all window, panel related functionality
