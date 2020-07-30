@@ -14,14 +14,14 @@ extern TIM_HandleTypeDef htim17;
  * Can be called from C
  */
 extern "C" void main_cpp() {
-  network inetwork;
+  auto& net{network::instance()};
   auto& left_window{window::get_left_window()};
   auto& right_window{window::get_right_window()};
 
   HAL_TIM_Base_Start_IT(&htim17);
 
   while (1) {
-    inetwork.step_network();
+    net.step_network();
 
     if (window::internal_animation_on) window::step_anim();
 

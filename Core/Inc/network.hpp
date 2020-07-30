@@ -36,12 +36,13 @@ class network {
     set_whitebalance = 0x80             //!< Set white balance
   };
 
-  network();
   network(const network&) = delete;
   network& operator=(const network&) = delete;
 
   /// Network class' loop
   void step_network();
+
+  static network& instance();
 
  private:
   /// Socket number for remote command handling
@@ -55,6 +56,8 @@ class network {
 
   /// Stores device's status string
   char status_string[512]{};
+
+  network();
 
   /// Generates #status_string.
   std::size_t create_status_string();

@@ -108,34 +108,6 @@ void ip_conflict() { reset_gpio(LED_DHCP); }
  *  network Class function defs
  ********************************/
 
-network::network() {
-  // Hard-reset W5500
-  reset_gpio(W5500_RESET);
-  HAL_Delay(1);  // min reset cycle 500 us
-  toogle_gpio(W5500_RESET);
-  HAL_Delay(1);  // PLL lock 1 ms max (refer datasheet)
-
-  reg_wizchip_cris_cbfunc(cris_en, cris_ex);
-  reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
-  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
-  reg_dhcp_cbfunc(ip_assign, ip_update, ip_conflict);
-
-  getMAC(netInfo.mac);
-  setSHAR(netInfo.mac);
-  netInfo.dhcp = NETINFO_DHCP;
-
-  // Set all capable, Auto-negotiation enabled
-  wiz_PhyConf_t phyconf = {.by = PHY_CONFBY_SW, .mode = PHY_MODE_AUTONEGO};
-  wizphy_setphyconf(&phyconf);
-
-  // DHCP 1s timer located in stm32f0xx_it.c
-  DHCP_init(dhcp_socket, gDATABUF);
-
-  socket(command_socket, Sn_MR_UDP, 2000, 0x00);
-  socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
-  socket(broadcast_socket, Sn_MR_UDP, 10000, 0x00);
-}
-
 void network::step_network() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     set_gpio(LED_JOKER);
@@ -162,6 +134,40 @@ void network::step_network() {
     reset_gpio(LED_DHCP);
     DHCP_rebind();
   }
+}
+
+network &network::instance() {
+  static network net;
+
+  return net;
+}
+
+network::network() {
+  // Hard-reset W5500
+  reset_gpio(W5500_RESET);
+  HAL_Delay(1);  // min reset cycle 500 us
+  toogle_gpio(W5500_RESET);
+  HAL_Delay(1);  // PLL lock 1 ms max (refer datasheet)
+
+  reg_wizchip_cris_cbfunc(cris_en, cris_ex);
+  reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
+  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
+  reg_dhcp_cbfunc(ip_assign, ip_update, ip_conflict);
+
+  getMAC(netInfo.mac);
+  setSHAR(netInfo.mac);
+  netInfo.dhcp = NETINFO_DHCP;
+
+  // Set all capable, Auto-negotiation enabled
+  wiz_PhyConf_t phyconf = {.by = PHY_CONFBY_SW, .mode = PHY_MODE_AUTONEGO};
+  wizphy_setphyconf(&phyconf);
+
+  // DHCP 1s timer located in stm32f0xx_it.c
+  DHCP_init(dhcp_socket, gDATABUF);
+
+  socket(command_socket, Sn_MR_UDP, 2000, 0x00);
+  socket(unicast_socket, Sn_MR_UDP, 3000, 0x00);
+  socket(broadcast_socket, Sn_MR_UDP, 10000, 0x00);
 }
 
 std::size_t network::create_status_string() {
