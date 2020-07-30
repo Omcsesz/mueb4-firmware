@@ -42,6 +42,15 @@ std::uint8_t level_number{0};
 /// Stores the room number where the device is located
 std::uint8_t room_number{0};
 
+/// Socket number for remote command handling
+static constexpr std::uint8_t command_socket{0};
+/// Socket number for unicast protocol
+static constexpr std::uint8_t unicast_socket{1};
+/// Socket number for broadcast protocol
+static constexpr std::uint8_t broadcast_socket{2};
+/// Socket number for DHCP
+static constexpr std::uint8_t dhcp_socket{7};
+
 /// WIZnet critical enter
 void cris_en() { __disable_irq(); }
 
@@ -102,6 +111,31 @@ void ip_update() {
 }
 
 void ip_conflict() { reset_gpio(LED_DHCP); }
+
+void flush_buffers() {
+  auto size{getSn_RX_RSR(command_socket)};
+
+  if (size) {
+    wiz_recv_ignore(command_socket, getSn_RX_RSR(command_socket));
+    setSn_CR(command_socket, Sn_CR_RECV);
+    while (getSn_CR(command_socket))
+      ;
+  }
+
+  if ((size = getSn_RX_RSR(unicast_socket))) {
+    wiz_recv_ignore(unicast_socket, size);
+    setSn_CR(unicast_socket, Sn_CR_RECV);
+    while (getSn_CR(unicast_socket))
+      ;
+  }
+
+  if ((size = getSn_RX_RSR(broadcast_socket))) {
+    wiz_recv_ignore(broadcast_socket, size);
+    setSn_CR(broadcast_socket, Sn_CR_RECV);
+    while (getSn_CR(broadcast_socket))
+      ;
+  }
+}
 }  // namespace
 
 /*********************************
@@ -432,7 +466,8 @@ void network::do_remote_command() {
                     netInfo.mac[4], netInfo.mac[5]);
       sendto(command_socket, (std::uint8_t *)mac, 17, resp_addr, resp_port);
       break;
-    case delete_anim_network_buffer:
+    case delete_network_buffers:
+      flush_buffers();
       break;
     case ping:
       sendto(command_socket, (std::uint8_t *)"pong", 4, resp_addr, resp_port);
