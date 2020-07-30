@@ -207,18 +207,19 @@ network::network() {
 std::size_t network::create_status_string() {
   int ret;
 
-  ret =
-      std::snprintf(status_string, sizeof(status_string),
-                    "MUEB FW version: %s\n"
-                    "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-                    "anim_source: %#x\n"
-                    "telemetry_comm_buff: %#x\n"
-                    "frame_ether_buff: %#x\n"
-                    "SEM forever\n",
-                    mueb_version, netInfo.mac[0], netInfo.mac[1],
-                    netInfo.mac[2], netInfo.mac[3], netInfo.mac[4],
-                    netInfo.mac[5], window::internal_animation_on,
-                    getSn_RX_RSR(command_socket), getSn_RX_RSR(unicast_socket));
+  ret = std::snprintf(
+      status_string, sizeof(status_string),
+      "MUEB FW version: %s\n"
+      "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+      "anim_source: %#x\n"
+      "telemetry_comm_buff: %#x\n"
+      "unicast_frame_ether_buff: %#x\n"
+      "broadcast_frame_ether_buff: %#x\n"
+      "SEM forever\n",
+      mueb_version, netInfo.mac[0], netInfo.mac[1], netInfo.mac[2],
+      netInfo.mac[3], netInfo.mac[4], netInfo.mac[5],
+      window::internal_animation_on, getSn_RX_RSR(command_socket),
+      getSn_RX_RSR(unicast_socket), getSn_RX_RSR(broadcast_socket));
 
   return (ret >= 0) ? ret : 0;
 }
