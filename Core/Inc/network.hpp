@@ -53,17 +53,6 @@ class network {
   /// Socket number for DHCP
   static constexpr std::uint8_t dhcp_socket{7};
 
-  /**
-   * Stores network information.
-   * Contains MAC address, Source IP, Subnet mask etc.
-   */
-  wiz_NetInfo netInfo;
-
-  /// Stores the level number where the device is located
-  std::uint8_t level_number{0};
-  /// Stores the room number where the device is located
-  std::uint8_t room_number{0};
-
   /// Stores device's status string
   char status_string[512]{};
 

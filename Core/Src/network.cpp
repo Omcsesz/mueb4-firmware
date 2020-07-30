@@ -31,6 +31,17 @@ namespace {
 const std::uint32_t main_program_size =
     ((std::uint32_t)&_main_program_end - FLASH_BASE) / 4;
 
+/**
+ * Stores network information.
+ * Contains MAC address, Source IP, Subnet mask etc.
+ */
+wiz_NetInfo netInfo;
+
+/// Stores the level number where the device is located
+std::uint8_t level_number{0};
+/// Stores the room number where the device is located
+std::uint8_t room_number{0};
+
 /// WIZnet critical enter
 void cris_en() { __disable_irq(); }
 
@@ -70,6 +81,27 @@ void spi_wb(std::uint8_t b) {
 
   LL_SPI_TransmitData8(SPI1, b);
 }
+
+inline void update_ip() {
+  wizchip_getnetinfo(&netInfo);
+  level_number = netInfo.ip[2];
+  room_number = netInfo.ip[3];
+}
+
+void ip_assign() {
+  default_ip_assign();
+
+  update_ip();
+  set_gpio(LED_DHCP);
+}
+
+void ip_update() {
+  default_ip_update();
+
+  update_ip();
+}
+
+void ip_conflict() { reset_gpio(LED_DHCP); }
 }  // namespace
 
 /*********************************
@@ -86,6 +118,7 @@ network::network() {
   reg_wizchip_cris_cbfunc(cris_en, cris_ex);
   reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
   reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
+  reg_dhcp_cbfunc(ip_assign, ip_update, ip_conflict);
 
   getMAC(netInfo.mac);
   setSHAR(netInfo.mac);
@@ -115,12 +148,6 @@ void network::step_network() {
       case DHCP_IP_ASSIGN:
       case DHCP_IP_CHANGED:
       case DHCP_IP_LEASED:
-        set_gpio(LED_DHCP);
-
-        wizchip_getnetinfo(&netInfo);
-        level_number = netInfo.ip[2];
-        room_number = netInfo.ip[3];
-
         // Must have IP address to work
         fetch_frame();
         break;
