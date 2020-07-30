@@ -225,6 +225,8 @@ std::size_t network::create_status_string() {
 }
 
 void network::fetch_frame_unicast_proto() {
+  set_gpio(LED_COMM);
+
   window::internal_animation_on = false;
 
   toogle_gpio(LED_COMM);
@@ -242,12 +244,14 @@ void network::fetch_frame_unicast_proto() {
   window::get_window(static_cast<window::window_from_outside>(window))
       .pixels[pixel_num]
       .set(buff[2], buff[3], buff[4]);
+
+  reset_gpio(LED_COMM);
 }
 
 void network::fetch_frame_broadcast_proto() {
-  window::internal_animation_on = false;
+  set_gpio(LED_COMM);
 
-  toogle_gpio(LED_COMM);
+  window::internal_animation_on = false;
 
   const std::uint8_t level{level_number};
   const std::uint8_t room{room_number};
@@ -391,6 +395,8 @@ void network::fetch_frame_broadcast_proto() {
     b = (buff[(base_offset + running_offset++)] & 0x0f) << 5;
     second_window.pixels[3].set(r, g, b);
   }
+
+  reset_gpio(LED_COMM);
 }
 
 void network::fetch_frame() {
@@ -402,7 +408,7 @@ void network::fetch_frame() {
 }
 
 void network::do_remote_command() {
-  toogle_gpio(LED_COMM);
+  set_gpio(LED_COMM);
 
   std::uint8_t buff[32]{};
   std::uint8_t resp_addr[4];
@@ -504,4 +510,6 @@ void network::do_remote_command() {
     default:
       break;
   }
+
+  reset_gpio(LED_COMM);
 }
