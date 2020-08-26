@@ -110,7 +110,11 @@ void ip_update() {
   update_ip();
 }
 
-void ip_conflict() { reset_gpio(LED_DHCP); }
+void ip_conflict() {
+  default_ip_conflict();
+
+  reset_gpio(LED_DHCP);
+}
 
 void flush_buffers() {
   auto size{getSn_RX_RSR(command_socket)};
