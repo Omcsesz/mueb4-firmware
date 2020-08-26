@@ -102,7 +102,6 @@
 							<tool id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec.1976293799" name="MCU Output Converter Motorola S-rec with symbols" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec"/>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.220782891.883044223" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Src/firmware_update.s|Src/firmware_update.cpp|Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
@@ -211,7 +210,6 @@
 							<tool id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec.242995185" name="MCU Output Converter Motorola S-rec with symbols" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec"/>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.release.604742391.1244373384" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Src/firmware_update.s|Src/firmware_update.cpp|Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
 						<entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
@@ -318,7 +316,6 @@
 							<tool id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec.1250703336" name="MCU Output Converter Motorola S-rec with symbols" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec"/>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.release.604742391.950101261.Core/Inc/matrix2_package_format.hpp" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
 						<entry excluding="Startup|Src/window.cpp|Src/system_stm32f0xx.c|Src/sysmem.c|Src/syscalls.c|Src/stm32f0xx_it.c|Src/stm32f0xx_hal_msp.c|Src/stm32_flash.cpp|Src/refurbish.cpp|Src/network.cpp|Src/main.c|Src/main_cpp.cpp|Src/mac_eeprom.c|Src/firm_update.cpp|Src/dhcp_buffer.c|Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
@@ -428,7 +425,6 @@
 							<tool id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec.1609407330" name="MCU Output Converter Motorola S-rec with symbols" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.objcopy.symbolsrec"/>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="com.st.stm32cube.ide.mcu.gnu.managedbuild.config.exe.debug.220782891.205268964.Core/Inc/matrix2_package_format.hpp" name="matrix2_package_format.hpp" rcbsApplicability="disable" resourcePath="Core/Inc/matrix2_package_format.hpp" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="Internet|Application|Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
 						<entry excluding="Startup|Src/window.cpp|Src/system_stm32f0xx.c|Src/sysmem.c|Src/syscalls.c|Src/stm32f0xx_it.c|Src/stm32f0xx_hal_msp.c|Src/stm32_flash.cpp|Src/refurbish.cpp|Src/network.cpp|Src/main.c|Src/main_cpp.cpp|Src/mac_eeprom.c|Src/firm_update.cpp|Src/dhcp_buffer.c|Src/firmware_update.s|Src/firmware_update.cpp|Inc/matrix2_package_format.hpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
