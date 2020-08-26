@@ -14,6 +14,8 @@
 #include "gpios.h"
 #include "main.h"
 
+SPI_HandleTypeDef hspi1;
+
 /// WIZnet chip select
 void cs_sel() {
   reset_gpio(SPI1_NSS);  // ChipSelect to low
@@ -25,32 +27,44 @@ void cs_desel() {
 }
 
 /// Read byte from WIZnet chip through SPI
-uint8_t spi_rb(void) {
-  while (LL_SPI_IsActiveFlag_RXNE(SPI1))
-    LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
+uint8_t spi_rbyte(void) {
+  uint8_t ret;
+  HAL_SPI_Receive(&hspi1, &ret, 1, 255);
 
-  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
-    ;
-
-  LL_SPI_TransmitData8(SPI1, 0xFF);  // send dummy byte
-
-  while (!LL_SPI_IsActiveFlag_RXNE(SPI1))
-    ;
-
-  return (LL_SPI_ReceiveData8(SPI1));
+  return ret;
 }
 
 /// Write byte to WIZnet chip through SPI
-void spi_wb(uint8_t b) {
-  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
-    ;
+void spi_wbyte(uint8_t b) { HAL_SPI_Transmit(&hspi1, &b, 1, 255); }
 
-  LL_SPI_TransmitData8(SPI1, b);
+/// Read burst from WIZnet chip through SPI
+void spi_rburst(uint8_t *pBuf, uint16_t len) {
+  HAL_SPI_Receive(&hspi1, pBuf, len, 255);
+}
+
+/// Write burst to WIZnet chip through SPI
+void spi_wburst(uint8_t *pBuf, uint16_t len) {
+  HAL_SPI_Transmit(&hspi1, pBuf, len, 255);
 }
 
 /// Manages firmware update process.
 void firmware_update() {
   __disable_irq();
+
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 7;
+  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
 
   LL_RCC_HSI_Enable();
 
@@ -58,7 +72,8 @@ void firmware_update() {
     ;
 
   reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
-  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
+  reg_wizchip_spi_cbfunc(spi_rbyte, spi_wbyte);
+  reg_wizchip_spiburst_cbfunc(spi_rburst, spi_wburst);
 
   socket(3, Sn_MR_TCP, 1997, 0x00);
 
@@ -73,7 +88,8 @@ void firmware_update() {
 
   uint32_t base_addr = FLASH_BASE;
 
-  FLASH_EraseInitTypeDef pEraseInit = {.NbPages = 56,
+  // Update NbPages when firmware update's flash size changes 64 - 10 = 54
+  FLASH_EraseInitTypeDef pEraseInit = {.NbPages = 54,
                                        .PageAddress = base_addr,
                                        .TypeErase = FLASH_TYPEERASE_PAGES};
   uint32_t PageError;

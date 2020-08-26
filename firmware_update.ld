@@ -5,7 +5,7 @@ ENTRY(Firmware_Update_Handler)
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20001C00,   LENGTH = 1K
-  FLASH    (rx)    : ORIGIN = 0x0800E000,   LENGTH = 8K
+  FLASH    (rx)    : ORIGIN = 0x800D800,   LENGTH = 10K
 }
 
 /* Sections */

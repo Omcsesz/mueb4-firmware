@@ -25,6 +25,7 @@ extern std::uint32_t _main_program_end;
 ///@}
 
 extern CRC_HandleTypeDef hcrc;
+extern SPI_HandleTypeDef hspi1;
 
 namespace {
 // Calculate main program flash size in words
@@ -68,27 +69,24 @@ void cs_desel() {
 }
 
 /// Read byte from WIZnet chip through SPI
-std::uint8_t spi_rb(void) {
-  while (LL_SPI_IsActiveFlag_RXNE(SPI1))
-    LL_SPI_ReceiveData8(SPI1);  // flush any FIFO content
+std::uint8_t spi_rbyte(void) {
+  std::uint8_t ret;
+  HAL_SPI_Receive(&hspi1, &ret, 1, 255);
 
-  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
-    ;
-
-  LL_SPI_TransmitData8(SPI1, 0xFF);  // send dummy byte
-
-  while (!LL_SPI_IsActiveFlag_RXNE(SPI1))
-    ;
-
-  return (LL_SPI_ReceiveData8(SPI1));
+  return ret;
 }
 
 /// Write byte to WIZnet chip through SPI
-void spi_wb(std::uint8_t b) {
-  while (!LL_SPI_IsActiveFlag_TXE(SPI1))
-    ;
+void spi_wbyte(std::uint8_t b) { HAL_SPI_Transmit(&hspi1, &b, 1, 255); }
 
-  LL_SPI_TransmitData8(SPI1, b);
+/// Read burst from WIZnet chip through SPI
+void spi_rburst(std::uint8_t *pBuf, std::uint16_t len) {
+  HAL_SPI_Receive(&hspi1, pBuf, len, 255);
+}
+
+/// Write burst to WIZnet chip through SPI
+void spi_wburst(std::uint8_t *pBuf, std::uint16_t len) {
+  HAL_SPI_Transmit(&hspi1, pBuf, len, 255);
 }
 
 inline void update_ip() {
@@ -189,7 +187,8 @@ network::network() {
 
   reg_wizchip_cris_cbfunc(cris_en, cris_ex);
   reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
-  reg_wizchip_spi_cbfunc(spi_rb, spi_wb);
+  reg_wizchip_spi_cbfunc(spi_rbyte, spi_wbyte);
+  reg_wizchip_spiburst_cbfunc(spi_rburst, spi_wburst);
   reg_dhcp_cbfunc(ip_assign, ip_update, ip_conflict);
 
   getMAC(netInfo.mac);
