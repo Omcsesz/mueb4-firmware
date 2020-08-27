@@ -7,17 +7,19 @@
 
 #pragma once
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 const char* mueb_version =
 
     "v2.1"
 
 #ifdef _COMMIT
-    "-" _COMMIT
+    "-" STR(_COMMIT)
 #endif
-// TODO else compile error
 
 #ifdef _DIRTYTREE
-    "-dirty"
+        "-dirty"
 #endif
 
     ;
