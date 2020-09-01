@@ -403,8 +403,8 @@ void network::fetch_frame_broadcast_proto() {
 }
 
 void network::fetch_frame() {
-  if (getSn_RX_RSR(broadcast_socket) > 0 || level_number == 0 ||
-      room_number == 0)
+  if (getSn_RX_RSR(broadcast_socket) > 0 && level_number != 0 &&
+      room_number != 0)
     fetch_frame_broadcast_proto();
 
   if (getSn_RX_RSR(unicast_socket) > 0) fetch_frame_unicast_proto();
