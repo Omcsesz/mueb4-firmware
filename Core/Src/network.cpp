@@ -424,7 +424,7 @@ void network::do_remote_command() {
   if (buff[0] != 'S' || buff[1] != 'E' || buff[2] != 'M' || size < 4) return;
 
   /*
-   * When the 5th bit is set to 1 it means we're sending a broadcast command to
+   * When the 5th byte is set to 1 it means we're sending a broadcast command to
    * only one device
    * Can be used when the device doesn't have an IP address
    */
