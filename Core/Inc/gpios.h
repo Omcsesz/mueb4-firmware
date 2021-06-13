@@ -5,7 +5,8 @@
  * @author Zsombor Bodnár
  */
 
-#pragma once
+#ifndef MATRIX4_MUEB_FW_INC_GPIOS_H_
+#define MATRIX4_MUEB_FW_INC_GPIOS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,7 +15,6 @@ extern "C" {
 #include "main.h"
 
 /// Output
-
 enum output_gpioes {
   WINDOW_POWER_LEFT,
   SPI1_NSS,
@@ -38,7 +38,6 @@ void toogle_gpio(enum output_gpioes);
 #define toogle_gpio(x) LL_GPIO_TogglePin(x##_GPIO_Port, x##_Pin);
 
 /// Input
-
 enum input_gpioes { USER_INPUT_BUTTON };
 
 uint32_t read_gpio(enum input_gpioes);
@@ -47,3 +46,5 @@ uint32_t read_gpio(enum input_gpioes);
 #ifdef __cplusplus
 }
 #endif
+
+#endif  // MATRIX4_MUEB_FW_INC_GPIOS_H_

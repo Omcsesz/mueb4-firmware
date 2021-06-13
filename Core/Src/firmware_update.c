@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stm32f0xx.h>
-#include <w5500.h>
+#include <wizchip_conf.h>
 
 #include "gpios.h"
 #include "main.h"
@@ -29,22 +29,22 @@ void cs_desel() {
 /// Read byte from WIZnet chip through SPI
 uint8_t spi_rbyte(void) {
   uint8_t ret;
-  HAL_SPI_Receive(&hspi1, &ret, 1, 255);
+  HAL_SPI_Receive(&hspi1, &ret, 1, HAL_MAX_DELAY);
 
   return ret;
 }
 
 /// Write byte to WIZnet chip through SPI
-void spi_wbyte(uint8_t b) { HAL_SPI_Transmit(&hspi1, &b, 1, 255); }
+void spi_wbyte(uint8_t b) { HAL_SPI_Transmit(&hspi1, &b, 1, HAL_MAX_DELAY); }
 
 /// Read burst from WIZnet chip through SPI
 void spi_rburst(uint8_t *pBuf, uint16_t len) {
-  HAL_SPI_Receive(&hspi1, pBuf, len, 255);
+  HAL_SPI_Receive(&hspi1, pBuf, len, HAL_MAX_DELAY);
 }
 
 /// Write burst to WIZnet chip through SPI
 void spi_wburst(uint8_t *pBuf, uint16_t len) {
-  HAL_SPI_Transmit(&hspi1, pBuf, len, 255);
+  HAL_SPI_Transmit(&hspi1, pBuf, len, HAL_MAX_DELAY);
 }
 
 /// Manages firmware update process.

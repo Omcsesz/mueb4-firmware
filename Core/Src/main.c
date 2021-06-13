@@ -49,7 +49,7 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim17;
 
 /* USER CODE BEGIN PV */
-void main_cpp();
+void main_cc();
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,7 +107,7 @@ int main(void)
   MX_TIM17_Init();
   MX_CRC_Init();
   /* USER CODE BEGIN 2 */
-  main_cpp();
+  main_cc();
   /* USER CODE END 2 */
 
   /* Infinite loop */

@@ -48,8 +48,8 @@
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-void window_time_handler();
-void window_internal_animation_toggle();
+void PanelTimeHandler();
+void PanelInternalAnimationToggle();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -176,7 +176,7 @@ void EXTI2_3_IRQHandler(void)
   {
     LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
     /* USER CODE BEGIN LL_EXTI_LINE_2 */
-    window_internal_animation_toggle();
+    PanelInternalAnimationToggle();
     /* USER CODE END LL_EXTI_LINE_2 */
   }
   /* USER CODE BEGIN EXTI2_3_IRQn 1 */
@@ -220,7 +220,7 @@ void TIM17_IRQHandler(void)
   /* USER CODE BEGIN TIM17_IRQn 0 */
   DHCP_time_handler();
   LL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin); //TODO to be moved to the main loop
-  window_time_handler();
+  PanelTimeHandler();
   time_to_next_frame = 1;
 
   /* USER CODE END TIM17_IRQn 0 */
