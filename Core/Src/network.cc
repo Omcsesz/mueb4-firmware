@@ -213,30 +213,30 @@ void Network::FetchFrameBroadcastProtocol() {
 
     // First row
     left_panel_pixels[0].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     left_panel_pixels[0].green =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     left_panel_pixels[0].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
 
     left_panel_pixels[1].red =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     left_panel_pixels[1].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     left_panel_pixels[1].blue =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
 
     right_panel_pixels[0].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     right_panel_pixels[0].green =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     right_panel_pixels[0].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
 
     right_panel_pixels[1].red =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     right_panel_pixels[1].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     right_panel_pixels[1].blue =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
 
@@ -247,30 +247,30 @@ void Network::FetchFrameBroadcastProtocol() {
     running_offset = 48u;
 
     left_panel_pixels[2].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     left_panel_pixels[2].green =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     left_panel_pixels[2].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
 
     left_panel_pixels[3].red =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     left_panel_pixels[3].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     left_panel_pixels[3].blue =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
 
     right_panel_pixels[2].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     right_panel_pixels[2].green =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     right_panel_pixels[2].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
 
     right_panel_pixels[3].red =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
     right_panel_pixels[3].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 5u;
+        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
     right_panel_pixels[3].blue =
         (buffer[(base_offset + running_offset++)] & 0x0Fu);
 
