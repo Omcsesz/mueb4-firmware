@@ -55,14 +55,14 @@ class Network final {
   /// EEPROM I2C device address.
   static constexpr std::uint8_t kEepromAddress{0b10100001u};
 
+  /// Socket number for DHCP.
+  static constexpr std::uint8_t kDhcpSocket{0u};
+
   /// Socket number for remote command handling.
-  static constexpr std::uint8_t kCommandSocket{0u};
+  static constexpr std::uint8_t kCommandSocket{1u};
 
   /// Socket number for broadcast protocol.
-  static constexpr std::uint8_t kBroadcastSocket{1u};
-
-  /// Socket number for DHCP.
-  static constexpr std::uint8_t kDhcpSocket{7u};
+  static constexpr std::uint8_t kBroadcastSocket{2u};
 
   Network();
 

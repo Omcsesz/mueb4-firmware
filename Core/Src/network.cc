@@ -124,6 +124,12 @@ Network::Network() {
   // PLL lock 1 ms max (refer datasheet)
   HAL_Delay(1u);
 
+  // DHCP, command, broadcast protocol, firmware
+  std::array<std::uint8_t, 8> txsize{1u, 1u, 1u, 1u};
+  std::array<std::uint8_t, 8> rxsize{1u, 1u, 4u, 8u};
+  // This includes soft reset
+  wizchip_init(txsize.data(), rxsize.data());
+
   // Register W5500 callback functions
   reg_wizchip_cris_cbfunc(CrisEn, CrisEx);
   reg_wizchip_cs_cbfunc(CsSel, CsDesel);
@@ -343,24 +349,24 @@ void Network::FetchRemoteCommand() {
       NVIC_SystemReset();
       break;
     case Command::kGetStatus: {
-      char status_string[512]{};
-      sendto(
-          kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
-          std::snprintf(
-              status_string, sizeof(status_string),
-              // clang-format off
+      char status_string[256]{};
+      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
+             std::snprintf(status_string, sizeof(status_string),
+                           // clang-format off
               "MUEB FW version: %s\n"
               "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
               "Internal animation: %s\n"
               "Command socket buffer: %#x\n"
               "Broadcast socket buffer: %#x\n"
               "SEM forever",
-              // clang-format on
-              mueb_version, net_info.mac[0], net_info.mac[1], net_info.mac[2],
-              net_info.mac[3], net_info.mac[4], net_info.mac[5],
-              Panel::internal_animation_enabled_ ? "true" : "false",
-              getSn_RX_RSR(kCommandSocket), getSn_RX_RSR(kBroadcastSocket)),
-          server_address, server_port);
+                           // clang-format on
+                           mueb_version, net_info.mac[0], net_info.mac[1],
+                           net_info.mac[2], net_info.mac[3], net_info.mac[4],
+                           net_info.mac[5],
+                           Panel::internal_animation_enabled_ ? "on" : "off",
+                           getSn_RX_RSR(kCommandSocket),
+                           getSn_RX_RSR(kBroadcastSocket)),
+             server_address, server_port);
       break;
     }
     case Command::kGetMac:
