@@ -6,6 +6,11 @@
 
 #include "panel.h"
 
+#include <algorithm>
+
+extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart2;
+
 /**
  * Used for window#step_anim
  * @see ::TIM17_IRQHandler
@@ -36,26 +41,19 @@ extern "C" void PanelInternalAnimationToggle() {
   Panel::internal_animation_enabled_ = !Panel::internal_animation_enabled_;
 }
 
-Panel::Panel(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
-             GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
-             GPIO_TypeDef* gpio_port_tx, std::uint16_t gpio_pin_tx,
-             USART_TypeDef* USARTx, DMA_TypeDef* DMAx,
-             std::uint32_t dma_tx_channel)
+Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
+             const std::uint16_t gpio_pin_3v3,
+             GPIO_TypeDef* const gpio_port_power,
+             const std::uint16_t gpio_pin_power,
+             GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
+             UART_HandleTypeDef* const huartx)
     : gpio_port_3v3_(gpio_port_3v3),
       gpio_port_tx_(gpio_port_tx),
       gpio_port_power_(gpio_port_power),
-      DMAx_(DMAx),
-      USARTx_(USARTx),
-      dma_tx_channel_(dma_tx_channel),
       gpio_pin_3v3_(gpio_pin_3v3),
       gpio_pin_tx_(gpio_pin_tx),
-      gpio_pin_power_(gpio_pin_power) {
-  LL_DMA_SetPeriphAddress(DMAx, dma_tx_channel, (uint32_t)&USARTx->TDR);
-  LL_DMA_SetMemoryAddress(DMAx, dma_tx_channel,
-                          (std::uint32_t)dma_tx_buffer_.data());
-  LL_DMA_SetDataLength(DMAx, dma_tx_channel, 13u);
-  LL_USART_EnableDMAReq_TX(USARTx);
-
+      gpio_pin_power_(gpio_pin_power),
+      huartx_(huartx) {
   SetStatus(kDischargeCaps);
 }
 
@@ -64,8 +62,7 @@ void Panel::SwapPanels() { swapped_ = !swapped_; }
 Panel& Panel::LeftPanel() {
   static Panel instance(WINDOW_3V3_LEFT_GPIO_Port, WINDOW_3V3_LEFT_Pin,
                         WINDOW_POWER_LEFT_GPIO_Port, WINDOW_POWER_LEFT_Pin,
-                        WINDOW_TX_LEFT_GPIO_Port, WINDOW_TX_LEFT_Pin, USART2,
-                        DMA1, LL_DMA_CHANNEL_4);
+                        WINDOW_TX_LEFT_GPIO_Port, WINDOW_TX_LEFT_Pin, &huart2);
 
   return instance;
 }
@@ -73,8 +70,8 @@ Panel& Panel::LeftPanel() {
 Panel& Panel::RightPanel() {
   static Panel instance(WINDOW_3V3_RIGHT_GPIO_Port, WINDOW_3V3_RIGHT_Pin,
                         WINDOW_POWER_RIGHT_GPIO_Port, WINDOW_POWER_RIGHT_Pin,
-                        WINDOW_TX_RIGHT_GPIO_Port, WINDOW_TX_RIGHT_Pin, USART1,
-                        DMA1, LL_DMA_CHANNEL_2);
+                        WINDOW_TX_RIGHT_GPIO_Port, WINDOW_TX_RIGHT_Pin,
+                        &huart1);
 
   return instance;
 }
@@ -147,22 +144,22 @@ void Panel::SetStatus(enum Status status) {
   switch (status) {
     case kDischargeCaps:
       tick_1s_ = 0u;
-      LL_GPIO_SetOutputPin(gpio_port_3v3_, gpio_pin_3v3_);
-      LL_GPIO_ResetOutputPin(gpio_port_power_, gpio_pin_power_);
+      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_RESET);
       break;
     case kVcc3v3Off:
       tick_1s_ = 0u;
-      LL_GPIO_SetOutputPin(gpio_port_3v3_, gpio_pin_3v3_);
+      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_SET);
       break;
     case kVcc3v3On:
       tick_1s_ = 0u;
-      LL_GPIO_ResetOutputPin(gpio_port_3v3_, gpio_pin_3v3_);
+      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_RESET);
       break;
     case kVcc12vOff:
-      LL_GPIO_ResetOutputPin(gpio_port_power_, gpio_pin_power_);
+      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_RESET);
       break;
     case kVcc12vOn:
-      LL_GPIO_SetOutputPin(gpio_port_power_, gpio_pin_power_);
+      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_SET);
       break;
     default:
       return;
@@ -176,44 +173,34 @@ void Panel::Blank() { SendPixels(kPixels); }
 void Panel::TimeHandler() { tick_1s_++; }
 
 void Panel::SendPixels(const std::array<Pixel, kPixelCount>& pixels) {
-  if (!LL_USART_IsActiveFlag_TC(USARTx_) || status_ < kVcc3v3On ||
-      pixels.size() > kPixelCount) {
+  if (status_ < kVcc3v3On) {
     return;
   }
 
-  // besides the first F0 byte
-  std::size_t transfer_size{0u};
+  // Besides the first F0 byte
+  std::size_t transfer_size{1u};
   for (const auto& pixel : pixels) {
     std::uint8_t base = pixel.position * 3u;
 
-    dma_tx_buffer_[++transfer_size] = (base + 0u) << 4u | (pixel.red & 0x07u);
-    dma_tx_buffer_[++transfer_size] = (base + 1u) << 4u | (pixel.green & 0x07u);
-    dma_tx_buffer_[++transfer_size] = (base + 2u) << 4u | (pixel.blue & 0x07u);
+    dma_tx_buffer_[transfer_size++] = (base + 0u) << 4u | (pixel.red & 0x07u);
+    dma_tx_buffer_[transfer_size++] = (base + 1u) << 4u | (pixel.green & 0x07u);
+    dma_tx_buffer_[transfer_size++] = (base + 2u) << 4u | (pixel.blue & 0x07u);
   }
 
-  LL_DMA_DisableChannel(DMAx_, dma_tx_channel_);
-  LL_DMA_SetDataLength(DMAx_, dma_tx_channel_, transfer_size + 1);
-  LL_USART_ClearFlag_TC(USARTx_);
-  LL_DMA_EnableChannel(DMAx_, dma_tx_channel_);
+  HAL_UART_Transmit_DMA(huartx_, dma_tx_buffer_.data(), transfer_size);
 }
 
 void Panel::SetWhitebalance(
     const std::array<std::uint8_t, kWhiteBalanceDataSize>& white_balance) {
-  if (!LL_USART_IsActiveFlag_TC(USARTx_) || status_ < kVcc3v3On) {
+  if (status_ < kVcc3v3On) {
     return;
   }
 
-  LL_DMA_DisableChannel(DMAx_, dma_tx_channel_);
-  LL_DMA_SetMemoryAddress(DMAx_, dma_tx_channel_,
-                          (std::uint32_t)white_balance.data());
-  LL_DMA_SetDataLength(DMAx_, dma_tx_channel_, 22u);
-  LL_USART_ClearFlag_TC(USARTx_);
-  LL_DMA_EnableChannel(DMAx_, dma_tx_channel_);
+  std::array<std::uint8_t, kWhiteBalanceDataSize + 1> white_balance_with_header{
+      kConfigCommand};
+  std::copy_n(white_balance.begin(), white_balance.size(),
+              white_balance_with_header.begin() + 1);
 
-  while (!LL_USART_IsActiveFlag_TC(USARTx_)) {
-  }
-
-  LL_DMA_DisableChannel(DMAx_, dma_tx_channel_);
-  LL_DMA_SetMemoryAddress(DMAx_, dma_tx_channel_,
-                          (std::uint32_t)dma_tx_buffer_.data());
+  HAL_UART_Transmit_DMA(huartx_, white_balance_with_header.data(),
+                        white_balance_with_header.size());
 }

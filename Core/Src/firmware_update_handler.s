@@ -54,7 +54,7 @@ LoopFillZerobss:
 /* Call static constructors */
   bl __libc_init_array
 /* Call the application's entry point.*/
-  bl firmware_update
+  bl FirmwareUpdate
 
 LoopForever:
     b LoopForever

@@ -59,6 +59,8 @@ void PanelInternalAnimationToggle();
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim17;
+extern DMA_HandleTypeDef hdma_usart1_tx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN EV */
 extern uint8_t time_to_next_frame;
 /* USER CODE END EV */
@@ -152,13 +154,7 @@ void EXTI0_1_IRQHandler(void)
   /* USER CODE BEGIN EXTI0_1_IRQn 0 */
 
   /* USER CODE END EXTI0_1_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_0) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_0);
-    /* USER CODE BEGIN LL_EXTI_LINE_0 */
-
-    /* USER CODE END LL_EXTI_LINE_0 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);
   /* USER CODE BEGIN EXTI0_1_IRQn 1 */
 
   /* USER CODE END EXTI0_1_IRQn 1 */
@@ -172,13 +168,7 @@ void EXTI2_3_IRQHandler(void)
   /* USER CODE BEGIN EXTI2_3_IRQn 0 */
 
   /* USER CODE END EXTI2_3_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
-    /* USER CODE BEGIN LL_EXTI_LINE_2 */
-    PanelInternalAnimationToggle();
-    /* USER CODE END LL_EXTI_LINE_2 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
   /* USER CODE BEGIN EXTI2_3_IRQn 1 */
 
   /* USER CODE END EXTI2_3_IRQn 1 */
@@ -190,9 +180,9 @@ void EXTI2_3_IRQHandler(void)
 void DMA1_Channel2_3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
-  LL_DMA_ClearFlag_GI2(DMA1);
-  /* USER CODE END DMA1_Channel2_3_IRQn 0 */
 
+  /* USER CODE END DMA1_Channel2_3_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart1_tx);
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
 
   /* USER CODE END DMA1_Channel2_3_IRQn 1 */
@@ -204,9 +194,9 @@ void DMA1_Channel2_3_IRQHandler(void)
 void DMA1_Channel4_5_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 0 */
-  LL_DMA_ClearFlag_GI4(DMA1);
-  /* USER CODE END DMA1_Channel4_5_IRQn 0 */
 
+  /* USER CODE END DMA1_Channel4_5_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart2_tx);
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 1 */
 
   /* USER CODE END DMA1_Channel4_5_IRQn 1 */
@@ -218,8 +208,8 @@ void DMA1_Channel4_5_IRQHandler(void)
 void TIM17_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM17_IRQn 0 */
+  HAL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin);
   DHCP_time_handler();
-  LL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin); //TODO to be moved to the main loop
   PanelTimeHandler();
   time_to_next_frame = 1;
 

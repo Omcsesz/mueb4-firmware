@@ -11,69 +11,71 @@
 #include <stm32f0xx.h>
 #include <wizchip_conf.h>
 
-#include "gpios.h"
 #include "main.h"
 
-SPI_HandleTypeDef hspi1;
+SPI_HandleTypeDef hspi1 = {.Instance = SPI1,
+                           .Init.Mode = SPI_MODE_MASTER,
+                           .Init.Direction = SPI_DIRECTION_2LINES,
+                           .Init.DataSize = SPI_DATASIZE_8BIT,
+                           .Init.CLKPolarity = SPI_POLARITY_LOW,
+                           .Init.CLKPhase = SPI_PHASE_1EDGE,
+                           .Init.NSS = SPI_NSS_SOFT,
+                           .Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2,
+                           .Init.FirstBit = SPI_FIRSTBIT_MSB,
+                           .Init.TIMode = SPI_TIMODE_DISABLE,
+                           .Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE,
+                           .Init.CRCPolynomial = 7,
+                           .Init.CRCLength = SPI_CRC_LENGTH_DATASIZE,
+                           .Init.NSSPMode = SPI_NSS_PULSE_DISABLE};
 
 /// WIZnet chip select
-void cs_sel() {
-  reset_gpio(SPI1_NSS);  // ChipSelect to low
+void CsSel() {
+  // ChipSelect to low
+  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
 }
 
 /// WIZnet chip deselect
-void cs_desel() {
-  set_gpio(SPI1_NSS);  // ChipSelect to high
+void CsDesel() {
+  // ChipSelect to high
+  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
 }
 
 /// Read byte from WIZnet chip through SPI
-uint8_t spi_rbyte(void) {
-  uint8_t ret;
-  HAL_SPI_Receive(&hspi1, &ret, 1, HAL_MAX_DELAY);
+uint8_t SpiRb() {
+  uint8_t pData;
+  HAL_SPI_Receive(&hspi1, &pData, 1u, HAL_MAX_DELAY);
 
-  return ret;
+  return pData;
 }
 
 /// Write byte to WIZnet chip through SPI
-void spi_wbyte(uint8_t b) { HAL_SPI_Transmit(&hspi1, &b, 1, HAL_MAX_DELAY); }
+void SpiWb(uint8_t pData) {
+  HAL_SPI_Transmit(&hspi1, &pData, 1u, HAL_MAX_DELAY);
+}
 
 /// Read burst from WIZnet chip through SPI
-void spi_rburst(uint8_t *pBuf, uint16_t len) {
-  HAL_SPI_Receive(&hspi1, pBuf, len, HAL_MAX_DELAY);
+void SpiRBurst(uint8_t *pData, uint16_t Size) {
+  HAL_SPI_Receive(&hspi1, pData, Size, HAL_MAX_DELAY);
 }
 
 /// Write burst to WIZnet chip through SPI
-void spi_wburst(uint8_t *pBuf, uint16_t len) {
-  HAL_SPI_Transmit(&hspi1, pBuf, len, HAL_MAX_DELAY);
+void SpiWBurst(uint8_t *pData, uint16_t Size) {
+  HAL_SPI_Transmit(&hspi1, pData, Size, HAL_MAX_DELAY);
 }
 
 /// Manages firmware update process.
-void firmware_update() {
+void FirmwareUpdate() {
   __disable_irq();
 
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 7;
-  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
+  // For program and erase operations on the Flash memory (write/erase), the
+  // internal RC oscillator (HSI) must be ON.
+  RCC_OscInitTypeDef RCC_OscInitStruct = {
+      .OscillatorType = RCC_OSCILLATORTYPE_HSI, .HSIState = RCC_HSI_ON};
+  HAL_RCC_OscConfig(&RCC_OscInitStruct);
 
-  LL_RCC_HSI_Enable();
-
-  while (!LL_RCC_HSI_IsReady())
-    ;
-
-  reg_wizchip_cs_cbfunc(cs_sel, cs_desel);
-  reg_wizchip_spi_cbfunc(spi_rbyte, spi_wbyte);
-  reg_wizchip_spiburst_cbfunc(spi_rburst, spi_wburst);
+  reg_wizchip_cs_cbfunc(CsSel, CsDesel);
+  reg_wizchip_spi_cbfunc(SpiRb, SpiWb);
+  reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
 
   socket(3, Sn_MR_TCP, 1997, 0x00);
 
@@ -88,8 +90,8 @@ void firmware_update() {
 
   uint32_t base_addr = FLASH_BASE;
 
-  // Update NbPages when firmware update's flash size changes 64 - 10 = 54
-  FLASH_EraseInitTypeDef pEraseInit = {.NbPages = 54,
+  // Update NbPages when firmware update's flash size changes 64 - 12 = 52
+  FLASH_EraseInitTypeDef pEraseInit = {.NbPages = 52,
                                        .PageAddress = base_addr,
                                        .TypeErase = FLASH_TYPEERASE_PAGES};
   uint32_t PageError;

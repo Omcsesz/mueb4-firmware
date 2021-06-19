@@ -16,7 +16,6 @@
 #include <cstdio>
 #include <cstring>
 
-#include "gpios.h"
 #include "main.h"
 #include "panel.h"
 #include "version.h"
@@ -58,12 +57,14 @@ void CrisEx() { __enable_irq(); }
 
 /// WIZnet chip select
 void CsSel() {
-  reset_gpio(SPI1_NSS);  // ChipSelect to low
+  // ChipSelect to low
+  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
 }
 
 /// WIZnet chip deselect
 void CsDesel() {
-  set_gpio(SPI1_NSS);  // ChipSelect to high
+  // ChipSelect to high
+  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
 }
 
 /// Read byte from WIZnet chip through SPI
@@ -99,7 +100,7 @@ void IpAssign() {
   default_ip_assign();
 
   UpdateIp();
-  set_gpio(LED_DHCP);
+  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 }
 
 void IpUpdate() {
@@ -111,16 +112,16 @@ void IpUpdate() {
 void IpConflict() {
   default_ip_conflict();
 
-  reset_gpio(LED_DHCP);
+  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
 }  // namespace
 
 Network::Network() {
   // Hard-reset W5500
-  reset_gpio(W5500_RESET);
+  HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_RESET);
   // Min reset cycle 500 us
   HAL_Delay(1u);
-  toogle_gpio(W5500_RESET);
+  HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_SET);
   // PLL lock 1 ms max (refer datasheet)
   HAL_Delay(1u);
 
@@ -164,7 +165,7 @@ Network &Network::Instance() {
 
 void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
-    set_gpio(LED_JOKER);
+    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
 
     if (getSn_RX_RSR(kCommandSocket) > 0u) FetchRemoteCommand();
 
@@ -179,18 +180,18 @@ void Network::Step() {
         }
       } break;
       case DHCP_FAILED:
-        reset_gpio(LED_DHCP);
+        HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
         break;
     }
   } else {
-    reset_gpio(LED_JOKER);
-    reset_gpio(LED_DHCP);
+    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
     DHCP_rebind();
   }
 }
 
 void Network::FetchFrameBroadcastProtocol() {
-  set_gpio(LED_COMM);
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::internal_animation_enabled_ = false;
 
   std::uint8_t buffer[1500]{};
@@ -284,11 +285,11 @@ void Network::FetchFrameBroadcastProtocol() {
     Panel::GetPanel(Panel::RIGHT).SendPixels(right_panel_pixels);
   }
 
-  reset_gpio(LED_COMM);
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
 void Network::FetchRemoteCommand() {
-  set_gpio(LED_COMM);
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
 
   std::array<std::uint8_t, 32u> buffer{};
   std::uint8_t server_address[4]{};
@@ -414,7 +415,7 @@ void Network::FetchRemoteCommand() {
     }
   }
 
-  reset_gpio(LED_COMM);
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
 void Network::FlushBuffers() {

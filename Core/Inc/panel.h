@@ -50,6 +50,10 @@ class Panel final {
   /// Stores white balance data size.
   static constexpr std::size_t kWhiteBalanceDataSize{21u};
 
+  static constexpr std::uint8_t kInitCommand{0xF0u};
+
+  static constexpr std::uint8_t kConfigCommand{0xE0u};
+
   /// Stores white balance configuration data.
   static constexpr std::array<std::uint8_t, kWhiteBalanceDataSize>
       kWhiteBalance{};
@@ -139,10 +143,9 @@ class Panel final {
   Panel(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
         GPIO_TypeDef* const gpio_port_power, const std::uint16_t gpio_pin_power,
         GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
-        USART_TypeDef* const USARTx, DMA_TypeDef* const DMAx,
-        const std::uint32_t dma_tx_channel);
+        UART_HandleTypeDef* const huartx);
   /// DMA TX buffer.
-  std::array<std::uint8_t, 13u> dma_tx_buffer_{0xF0u};
+  std::array<std::uint8_t, 13u> dma_tx_buffer_{kInitCommand};
 
   /// Stores state of panel @see #Status.
   Status status_;
@@ -152,9 +155,7 @@ class Panel final {
   GPIO_TypeDef* const gpio_port_3v3_;
   GPIO_TypeDef* const gpio_port_tx_;
   GPIO_TypeDef* const gpio_port_power_;
-  DMA_TypeDef* const DMAx_;
-  USART_TypeDef* const USARTx_;
-  const std::uint32_t dma_tx_channel_;
+  UART_HandleTypeDef* const huartx_;
   const std::uint16_t gpio_pin_3v3_, gpio_pin_tx_, gpio_pin_power_;
   ///@}
 
