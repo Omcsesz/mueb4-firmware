@@ -68,6 +68,10 @@ class Panel final {
   Panel(const Panel&) = delete;
   Panel& operator=(const Panel&) = delete;
 
+  static void SetInternalAnimation(bool value);
+
+  static bool internal_animation_enabled();
+
   /**
    * Swap panels.
    * @see #swapped_ network#kSwapPanels
@@ -133,12 +137,6 @@ class Panel final {
   void SetWhitebalance(
       const std::array<std::uint8_t, kWhiteBalanceDataSize>& white_balance);
 
-  /// Stores if the internal animation is enabled.
-  static bool internal_animation_enabled_;
-
-  /// Stores if we can communicate with the panel.
-  bool active_{true};
-
  private:
   Panel(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
         GPIO_TypeDef* const gpio_port_power, const std::uint16_t gpio_pin_power,
@@ -146,6 +144,9 @@ class Panel final {
         UART_HandleTypeDef* const huartx);
   /// DMA TX buffer.
   std::array<std::uint8_t, 13u> dma_tx_buffer_{kInitCommand};
+
+  std::array<std::uint8_t, kWhiteBalanceDataSize + 1>
+      white_balance_with_header_{kConfigCommand};
 
   /// Stores state of panel @see #Status.
   Status status_;
@@ -165,8 +166,14 @@ class Panel final {
    */
   std::uint8_t tick_1s_{0u};
 
+  /// Stores if the internal animation is enabled.
+  static bool internal_animation_enabled_;
+
   /// Stores if left and right panels are swapped.
   static bool swapped_;
+
+  /// Stores if we can communicate with the panel.
+  bool active_{true};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_PANEL_H_

@@ -33,13 +33,19 @@ extern "C" void PanelTimeHandler() {
  * @see ::EXTI2_3_IRQHandler
  */
 extern "C" void PanelInternalAnimationToggle() {
+  Panel::SetInternalAnimation(!Panel::internal_animation_enabled());
+}
+
+void Panel::SetInternalAnimation(bool value) {
   if (Panel::internal_animation_enabled_) {
     Panel::LeftPanel().Blank();
     Panel::RightPanel().Blank();
   }
 
-  Panel::internal_animation_enabled_ = !Panel::internal_animation_enabled_;
+  internal_animation_enabled_ = value;
 }
+
+bool Panel::internal_animation_enabled() { return internal_animation_enabled_; }
 
 Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
              const std::uint16_t gpio_pin_3v3,
@@ -87,7 +93,7 @@ Panel& Panel::GetPanel(Side side) {
 }
 
 void Panel::StepAnim() {
-  if (!time_to_next_frame) {
+  if (!time_to_next_frame || !internal_animation_enabled_) {
     return;
   }
   time_to_next_frame = 0u;
@@ -135,8 +141,6 @@ void Panel::Step() {
       break;
     case kVcc12vOn:
       break;
-    default:
-      SetStatus(kDischargeCaps);
   }
 }
 
@@ -160,6 +164,7 @@ void Panel::SetStatus(enum Status status) {
       break;
     case kVcc12vOn:
       HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_SET);
+      Blank();
       break;
     default:
       return;
@@ -196,11 +201,8 @@ void Panel::SetWhitebalance(
     return;
   }
 
-  std::array<std::uint8_t, kWhiteBalanceDataSize + 1> white_balance_with_header{
-      kConfigCommand};
   std::copy_n(white_balance.begin(), white_balance.size(),
-              white_balance_with_header.begin() + 1);
-
-  HAL_UART_Transmit_DMA(huartx_, white_balance_with_header.data(),
-                        white_balance_with_header.size());
+              white_balance_with_header_.begin() + 1);
+  HAL_UART_Transmit_DMA(huartx_, white_balance_with_header_.data(),
+                        white_balance_with_header_.size());
 }

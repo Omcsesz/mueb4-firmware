@@ -22,9 +22,7 @@ extern "C" void Main() {
 
   while (1) {
     network.Step();
-
-    if (Panel::internal_animation_enabled_) Panel::StepAnim();
-
+    Panel::StepAnim();
     left_panel.Step();
     right_panel.Step();
   }

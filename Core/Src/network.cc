@@ -194,7 +194,7 @@ void Network::Step() {
 
 void Network::FetchFrameBroadcastProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
-  Panel::internal_animation_enabled_ = false;
+  Panel::SetInternalAnimation(false);
 
   std::uint8_t buffer[1500]{};
   std::uint8_t server_address[4]{};
@@ -327,10 +327,10 @@ void Network::FetchRemoteCommand() {
 
   switch (buffer[3]) {
     case Command::kUseExternalAnim:
-      Panel::internal_animation_enabled_ = false;
+      Panel::SetInternalAnimation(false);
       break;
     case Command::kUseInternalAnim:
-      Panel::internal_animation_enabled_ = true;
+      Panel::SetInternalAnimation(true);
       break;
     case Command::kBlank:
       Panel::LeftPanel().Blank();
@@ -349,7 +349,7 @@ void Network::FetchRemoteCommand() {
       Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kDischargeCaps);
       break;
     case Command::kReboot:
-      NVIC_SystemReset();
+      HAL_NVIC_SystemReset();
       break;
     case Command::kGetStatus: {
       char status_string[256]{};
@@ -366,7 +366,7 @@ void Network::FetchRemoteCommand() {
                            mueb_version, net_info.mac[0], net_info.mac[1],
                            net_info.mac[2], net_info.mac[3], net_info.mac[4],
                            net_info.mac[5],
-                           Panel::internal_animation_enabled_ ? "on" : "off",
+                           Panel::internal_animation_enabled() ? "on" : "off",
                            getSn_RX_RSR(kCommandSocket),
                            getSn_RX_RSR(kBroadcastSocket)),
              server_address, server_port);
