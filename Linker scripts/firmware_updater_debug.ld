@@ -5,7 +5,7 @@ ENTRY(Firmware_Updater_Handler)
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
 /* Main program flash area pages */
-_main_program_pages = 64K - LENGTH(FLASH);
+_main_program_pages = (64K - LENGTH(FLASH)) / 1K;
 
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
