@@ -151,8 +151,8 @@ local.properties
 Debug/
 Release/
 build/
-FirmwareUpdate/
-FirmwareUpdateDebug/
+FirmwareUpdater/
+FirmwareUpdaterDebug/
 Drivers/
 Doc/
 

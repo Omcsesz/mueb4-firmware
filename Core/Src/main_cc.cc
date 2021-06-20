@@ -13,7 +13,7 @@ extern TIM_HandleTypeDef htim17;
  * C++ main loop.
  * Can be called from C
  */
-extern "C" void main_cc() {
+extern "C" void Main() {
   auto& network{Network::Instance()};
   auto& left_panel{Panel::LeftPanel()};
   auto& right_panel{Panel::RightPanel()};

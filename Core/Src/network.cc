@@ -29,14 +29,14 @@ extern I2C_HandleTypeDef hi2c2;
 
 ///@{
 /// Defined in linker script
-extern std::uint32_t _firmware_update_handler;
-extern std::uint32_t _main_program_end;
+extern std::uintptr_t _firmware_updater_handler[];
+extern std::uintptr_t _main_program_end[];
 ///@}
 
 namespace {
 // Calculate main program flash size in words
 const std::uint32_t kMainProgramSize =
-    ((std::uint32_t)&_main_program_end - FLASH_BASE) / 4u;
+    (reinterpret_cast<std::uintptr_t>(_main_program_end) - FLASH_BASE) / 4u;
 
 /// Stores the level number where the device is located
 std::uint8_t level_number{0u};
@@ -125,18 +125,18 @@ Network::Network() {
   // PLL lock 1 ms max (refer datasheet)
   HAL_Delay(1u);
 
-  // DHCP, command, broadcast protocol, firmware
-  std::array<std::uint8_t, 8> txsize{1u, 1u, 1u, 1u};
-  std::array<std::uint8_t, 8> rxsize{1u, 1u, 4u, 8u};
-  // This includes soft reset
-  wizchip_init(txsize.data(), rxsize.data());
-
   // Register W5500 callback functions
   reg_wizchip_cris_cbfunc(CrisEn, CrisEx);
   reg_wizchip_cs_cbfunc(CsSel, CsDesel);
   reg_wizchip_spi_cbfunc(SpiRb, SpiWb);
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
   reg_dhcp_cbfunc(IpAssign, IpUpdate, IpConflict);
+
+  // DHCP, command, broadcast protocol, firmware
+  std::array<std::uint8_t, 8> txsize{1u, 1u, 1u, 1u};
+  std::array<std::uint8_t, 8> rxsize{1u, 1u, 4u, 8u};
+  // This includes soft reset
+  wizchip_init(txsize.data(), rxsize.data());
 
   // Gets MAC address from EEPROM.
   // The device uses Microchip 24AA02E48T-I/OT EEPROM
@@ -167,7 +167,9 @@ void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
 
-    if (getSn_RX_RSR(kCommandSocket) > 0u) FetchRemoteCommand();
+    if (getSn_RX_RSR(kCommandSocket) > 0u) {
+      FetchRemoteCommand();
+    }
 
     // do DHCP task
     switch (DHCP_run()) {
@@ -386,7 +388,8 @@ void Network::FetchRemoteCommand() {
              server_port);
       break;
     case Command::kStartFirmwareUpdate: {
-      void *f = (std::uint32_t *)&_firmware_update_handler;
+      // Generate jump instruction
+      void *f{_firmware_updater_handler};
       goto *f;
       break;
     }
