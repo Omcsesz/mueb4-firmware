@@ -158,9 +158,9 @@ Network::Network() {
 }
 
 Network &Network::Instance() {
-  static Network net;
+  static Network network;
 
-  return net;
+  return network;
 }
 
 void Network::Step() {

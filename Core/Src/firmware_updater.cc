@@ -114,10 +114,10 @@ extern "C" void FirmwareUpdater() {
   }
 
   // Write flash page by page
-  std::int32_t recv_size = 0;
-  std::uint32_t base_addr = FLASH_BASE;
+  std::int32_t recv_size{0};
+  std::uint32_t base_addr{FLASH_BASE};
   do {
-    std::uint8_t buffer[FLASH_PAGE_SIZE] = {};
+    std::uint8_t buffer[FLASH_PAGE_SIZE]{};
     std::uint16_t *buffer_p{reinterpret_cast<std::uint16_t *>(buffer)};
 
     if ((recv_size = recv(3, buffer, FLASH_PAGE_SIZE)) > 0) {
