@@ -11,10 +11,10 @@
 #include <wizchip_conf.h>
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 #include "main.h"
 #include "panel.h"
@@ -166,29 +166,40 @@ Network &Network::Instance() {
 void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
+    if (DHCP_run() == DHCP_FAILED) {
+      HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
+    }
 
     if (getSn_RX_RSR(kCommandSocket) > 0u) {
       FetchRemoteCommand();
     }
 
-    // do DHCP task
-    switch (DHCP_run()) {
-      case DHCP_IP_ASSIGN:
-      case DHCP_IP_CHANGED:
-      case DHCP_IP_LEASED: {
-        if (getSn_RX_RSR(kBroadcastSocket) > 0u && level_number != 0u &&
-            room_number != 0u) {
-          FetchFrameBroadcastProtocol();
-        }
-      } break;
-      case DHCP_FAILED:
-        HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-        break;
+    if (getSn_RX_RSR(kBroadcastSocket) > 0u && level_number != 0u &&
+        room_number != 0u) {
+      FetchFrameBroadcastProtocol();
     }
+
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-    DHCP_rebind();
+    DhcpRebind();
+  }
+}
+
+template <std::size_t N>
+std::int32_t Network::HandlePacket(const std::uint8_t &socket_number,
+                                   std::array<std::uint8_t, N> buffer,
+                                   std::array<std::uint8_t, 4u> server_address,
+                                   std::uint16_t server_port) {
+  recvfrom(socket_number, buffer.data(), buffer.size(), server_address.data(),
+           &server_port);
+
+  if (std::equal(std::begin(net_info.gw), std::end(net_info.gw),
+                 server_address.begin()) &&
+      server_address[3] != 0 &&
+      server_address[4] ==
+          std::clamp(static_cast<unsigned int>(server_address[4]), 1u, 255u)) {
+    return SOCKERR_IPINVALID;
   }
 }
 
@@ -196,12 +207,12 @@ void Network::FetchFrameBroadcastProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
-  std::uint8_t buffer[1500]{};
-  std::uint8_t server_address[4]{};
-  std::uint16_t server_port;
-  auto size{recvfrom(kBroadcastSocket, buffer, sizeof(buffer), server_address,
-                     &server_port)};
-  if (buffer[0] != 0x02u || (buffer[0u] == 0x02u && size < 1250u)) return;
+  // Handle too small and incorrect packages
+  std::array<std::uint8_t, 1500u> buffer{};
+  auto size{HandlePacket(kBroadcastSocket, buffer)};
+  if (buffer[0] != 0x02u || (buffer[0u] == 0x02u && size < 1250u)) {
+    return;
+  }
 
   if (buffer[0] == 0x02u) {
     std::uint32_t base_offset{0u};
@@ -293,14 +304,11 @@ void Network::FetchFrameBroadcastProtocol() {
 void Network::FetchRemoteCommand() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
 
-  std::array<std::uint8_t, 32u> buffer{};
-  std::uint8_t server_address[4]{};
-  std::uint16_t server_port;
-
-  auto size{recvfrom(kCommandSocket, buffer.data(), sizeof(buffer),
-                     server_address, &server_port)};
-
   // Handle too small and incorrect packages
+  std::array<std::uint8_t, 1500u> buffer{};
+  std::array<std::uint8_t, 4u> server_address{};
+  std::uint16_t server_port;
+  auto size{HandlePacket(kCommandSocket, buffer, server_address, server_port)};
   if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4u) {
     return;
   }
@@ -332,10 +340,11 @@ void Network::FetchRemoteCommand() {
     case Command::kUseInternalAnim:
       Panel::SetInternalAnimation(true);
       break;
-    case Command::kBlank:
+    case Command::kBlank: {
       Panel::LeftPanel().Blank();
       Panel::RightPanel().Blank();
       break;
+    }
     case Command::kTurn12vOffLeft:
       Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kVcc12vOff);
       break;
@@ -352,9 +361,10 @@ void Network::FetchRemoteCommand() {
       HAL_NVIC_SystemReset();
       break;
     case Command::kGetStatus: {
-      char status_string[256]{};
-      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
-             std::snprintf(status_string, sizeof(status_string),
+      std::array<char, 256> status_string;
+      sendto(kCommandSocket,
+             reinterpret_cast<std::uint8_t *>(status_string.data()),
+             std::snprintf(status_string.data(), status_string.size(),
                            // clang-format off
               "MUEB FW version: %s\n"
               "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
@@ -369,22 +379,23 @@ void Network::FetchRemoteCommand() {
                            Panel::internal_animation_enabled() ? "on" : "off",
                            getSn_RX_RSR(kCommandSocket),
                            getSn_RX_RSR(kBroadcastSocket)),
-             server_address, server_port);
+             server_address.data(), server_port);
       break;
     }
-    case Command::kGetMac:
-      char mac[18];
-      std::snprintf(mac, sizeof(mac), "%x:%x:%x:%x:%x:%x", net_info.mac[0],
-                    net_info.mac[1], net_info.mac[2], net_info.mac[3],
-                    net_info.mac[4], net_info.mac[5]);
-      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac), 17u,
-             server_address, server_port);
+    case Command::kGetMac: {
+      std::array<char, 18> mac{};
+      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
+             std::snprintf(mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x",
+                           net_info.mac[0], net_info.mac[1], net_info.mac[2],
+                           net_info.mac[3], net_info.mac[4], net_info.mac[5]),
+             server_address.data(), server_port);
       break;
+    }
     case Command::kFlushSocketBuffers:
       FlushBuffers();
       break;
     case Command::kPing:
-      sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address,
+      sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
              server_port);
       break;
     case Command::kStartFirmwareUpdate: {
@@ -401,8 +412,8 @@ void Network::FetchRemoteCommand() {
        */
       crc = __REV(~crc);
 
-      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc), server_address,
-             server_port);
+      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
+             server_address.data(), server_port);
       break;
     }
     case Command::kSwapPanels:

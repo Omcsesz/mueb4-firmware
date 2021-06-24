@@ -8,6 +8,7 @@
 #define MATRIX4_MUEB_FW_INC_NETWORK_H_
 
 #include <cstdint>
+#include <array>
 
 /**
  * Manages all network related functionality.
@@ -65,6 +66,12 @@ class Network final {
   static constexpr std::uint8_t kBroadcastSocket{2u};
 
   Network();
+
+  template <std::size_t N>
+  std::int32_t HandlePacket(const std::uint8_t &socket_number,
+                            std::array<std::uint8_t, N> buffer,
+                            std::array<std::uint8_t, 4u> server_address = {},
+                            std::uint16_t server_port = {});
 
   /// Handles broadcast protocol.
   void FetchFrameBroadcastProtocol();
