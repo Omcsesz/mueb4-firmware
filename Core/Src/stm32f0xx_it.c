@@ -50,6 +50,7 @@
 /* USER CODE BEGIN PFP */
 void PanelTimeHandler();
 void PanelInternalAnimationToggle();
+void StepInternalAnimation();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -62,7 +63,7 @@ extern TIM_HandleTypeDef htim17;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN EV */
-extern uint8_t time_to_next_frame;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -211,8 +212,7 @@ void TIM17_IRQHandler(void)
   HAL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin);
   DHCP_time_handler();
   PanelTimeHandler();
-  time_to_next_frame = 1;
-
+  StepInternalAnimation();
   /* USER CODE END TIM17_IRQn 0 */
   HAL_TIM_IRQHandler(&htim17);
   /* USER CODE BEGIN TIM17_IRQn 1 */

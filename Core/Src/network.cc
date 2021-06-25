@@ -117,12 +117,12 @@ void IpConflict() {
 }  // namespace
 
 Network::Network() {
-  // Hard-reset W5500
+  // Hardware reset W5500
   HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_RESET);
-  // Min reset cycle 500 us
+  // RESET should be held low at least 500 us for W5500
   HAL_Delay(1u);
   HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_SET);
-  // PLL lock 1 ms max (refer datasheet)
+  // RSTn to internal PLOCK (PLL Lock)
   HAL_Delay(1u);
 
   // Register W5500 callback functions
@@ -154,7 +154,7 @@ Network::Network() {
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_);
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
-  socket(kBroadcastSocket, Sn_MR_UDP, kBroadcastSocketPort, 0x00u);
+  socket(kAnimationSocket, Sn_MR_UDP, kBroadcastSocketPort, 0x00u);
 }
 
 Network &Network::Instance() {
@@ -171,14 +171,13 @@ void Network::Step() {
     }
 
     if (getSn_RX_RSR(kCommandSocket) > 0u) {
-      FetchRemoteCommand();
+      HandleCommandProtocol();
     }
 
-    if (getSn_RX_RSR(kBroadcastSocket) > 0u && level_number != 0u &&
+    if (getSn_RX_RSR(kAnimationSocket) > 0u && level_number != 0u &&
         room_number != 0u) {
-      FetchFrameBroadcastProtocol();
+      HandleAnimationProtocol();
     }
-
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
@@ -187,30 +186,34 @@ void Network::Step() {
 }
 
 template <std::size_t N>
-std::int32_t Network::HandlePacket(const std::uint8_t &socket_number,
-                                   std::array<std::uint8_t, N> buffer,
-                                   std::array<std::uint8_t, 4u> server_address,
-                                   std::uint16_t server_port) {
-  recvfrom(socket_number, buffer.data(), buffer.size(), server_address.data(),
-           &server_port);
+auto Network::HandlePacket(const std::uint8_t &socket_number) {
+  std::array<std::uint8_t, N> buffer;
+  std::array<std::uint8_t, 4u> server_address;
+  std::uint16_t server_port;
+
+  std::int32_t size{recvfrom(socket_number, buffer.data(), buffer.size(),
+                             server_address.data(), &server_port)};
 
   if (std::equal(std::begin(net_info.gw), std::end(net_info.gw),
                  server_address.begin()) &&
       server_address[3] != 0 &&
       server_address[4] ==
           std::clamp(static_cast<unsigned int>(server_address[4]), 1u, 255u)) {
-    return SOCKERR_IPINVALID;
+    return std::make_tuple(static_cast<std::int32_t>(SOCKERR_IPINVALID), buffer,
+                           server_address, server_port);
   }
+
+  return std::make_tuple(size, buffer, server_address, server_port);
 }
 
-void Network::FetchFrameBroadcastProtocol() {
+void Network::HandleAnimationProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
   // Handle too small and incorrect packages
-  std::array<std::uint8_t, 1500u> buffer{};
-  auto size{HandlePacket(kBroadcastSocket, buffer)};
-  if (buffer[0] != 0x02u || (buffer[0u] == 0x02u && size < 1250u)) {
+  auto [size, buffer, server_address,
+        server_port]{HandlePacket<1500u>(kAnimationSocket)};
+  if (buffer[0] != 0x02u || (buffer[0u] == 0x02u && size < 1250)) {
     return;
   }
 
@@ -301,15 +304,13 @@ void Network::FetchFrameBroadcastProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
-void Network::FetchRemoteCommand() {
+void Network::HandleCommandProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
 
   // Handle too small and incorrect packages
-  std::array<std::uint8_t, 1500u> buffer{};
-  std::array<std::uint8_t, 4u> server_address{};
-  std::uint16_t server_port;
-  auto size{HandlePacket(kCommandSocket, buffer, server_address, server_port)};
-  if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4u) {
+  auto [size, buffer, server_address,
+        server_port]{HandlePacket<32u>(kCommandSocket)};
+  if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4) {
     return;
   }
 
@@ -340,11 +341,9 @@ void Network::FetchRemoteCommand() {
     case Command::kUseInternalAnim:
       Panel::SetInternalAnimation(true);
       break;
-    case Command::kBlank: {
-      Panel::LeftPanel().Blank();
-      Panel::RightPanel().Blank();
+    case Command::kBlank:
+      Panel::BlankAll();
       break;
-    }
     case Command::kTurn12vOffLeft:
       Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kVcc12vOff);
       break;
@@ -378,7 +377,7 @@ void Network::FetchRemoteCommand() {
                            net_info.mac[5],
                            Panel::internal_animation_enabled() ? "on" : "off",
                            getSn_RX_RSR(kCommandSocket),
-                           getSn_RX_RSR(kBroadcastSocket)),
+                           getSn_RX_RSR(kAnimationSocket)),
              server_address.data(), server_port);
       break;
     }
@@ -405,8 +404,8 @@ void Network::FetchRemoteCommand() {
       break;
     }
     case Command::kGetFirmwareChecksum: {
-      auto crc = HAL_CRC_Calculate(&hcrc, (std::uint32_t *)FLASH_BASE,
-                                   kMainProgramSize);
+      auto crc{HAL_CRC_Calculate(&hcrc, (std::uint32_t *)FLASH_BASE,
+                                 kMainProgramSize)};
       /* __REV for endianness fix
        * negate(crc XOR 0xFFFFFFFF) for standard CRC32
        */
@@ -423,8 +422,8 @@ void Network::FetchRemoteCommand() {
       auto white_balance{Panel::kWhiteBalance};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
-      Panel::GetPanel(Panel::LEFT).SetWhitebalance(white_balance);
-      Panel::GetPanel(Panel::RIGHT).SetWhitebalance(white_balance);
+      Panel::GetPanel(Panel::LEFT).SendWhitebalance(white_balance);
+      Panel::GetPanel(Panel::RIGHT).SendWhitebalance(white_balance);
       break;
     }
   }
@@ -442,10 +441,10 @@ void Network::FlushBuffers() {
     }
   }
 
-  if ((size = getSn_RX_RSR(kBroadcastSocket))) {
-    wiz_recv_ignore(kBroadcastSocket, size);
-    setSn_CR(kBroadcastSocket, Sn_CR_RECV);
-    while (getSn_CR(kBroadcastSocket)) {
+  if ((size = getSn_RX_RSR(kAnimationSocket))) {
+    wiz_recv_ignore(kAnimationSocket, size);
+    setSn_CR(kAnimationSocket, Sn_CR_RECV);
+    while (getSn_CR(kAnimationSocket)) {
     }
   }
 }

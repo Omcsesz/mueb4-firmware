@@ -83,14 +83,14 @@ class Panel final {
    * @see #LeftPanel
    * @return Left #Panel instance
    */
-  static Panel& LeftPanel();
+  static Panel& left_panel();
 
   /**
    * Returns right #Panel instance independently of #swapped_.
    * @see #RightPanel
    * @return Right #Panel instance
    */
-  static Panel& RightPanel();
+  static Panel& right_panel();
 
   /**
    * This function returns a #Panel instance using #swapped_.
@@ -105,7 +105,9 @@ class Panel final {
   static Panel& GetPanel(Side side);
 
   /// Internal animation's loop
-  static void StepAnim();
+  static void StepInternalAnimation();
+
+  static void BlankAll();
 
   /// Panel class' loop
   void Step();
@@ -134,7 +136,7 @@ class Panel final {
   void SendPixels(const std::array<Pixel, kPixelCount>& pixels);
 
   /// Send white balance data to panel.
-  void SetWhitebalance(
+  void SendWhitebalance(
       const std::array<std::uint8_t, kWhiteBalanceDataSize>& white_balance);
 
  private:
@@ -145,11 +147,11 @@ class Panel final {
   /// DMA TX buffer.
   std::array<std::uint8_t, 13u> dma_tx_buffer_{kInitCommand};
 
-  std::array<std::uint8_t, kWhiteBalanceDataSize + 1>
-      white_balance_with_header_{kConfigCommand};
+  std::array<std::uint8_t, kWhiteBalanceDataSize + 1> white_balance_{
+      kConfigCommand};
 
   /// Stores state of panel @see #Status.
-  Status status_;
+  Status status_{kDischargeCaps};
 
   ///@{
   /// Defined in main.h

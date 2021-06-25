@@ -7,8 +7,9 @@
 #ifndef MATRIX4_MUEB_FW_INC_NETWORK_H_
 #define MATRIX4_MUEB_FW_INC_NETWORK_H_
 
-#include <cstdint>
 #include <array>
+#include <cstdint>
+#include <tuple>
 
 /**
  * Manages all network related functionality.
@@ -35,20 +36,20 @@ class Network final {
     kSetWhitebalance       ///< Set white balance
   };
 
-  Network(const Network&) = delete;
-  Network& operator=(const Network&) = delete;
+  Network(const Network &) = delete;
+  Network &operator=(const Network &) = delete;
 
-  static Network& Instance();
+  static Network &Instance();
 
   /// Network class' loop.
   void Step();
 
  private:
   /// Command socket port number.
-  static constexpr std::uint16_t kCommandSocketPort{2000u};
+  static constexpr std::uint16_t kCommandSocketPort{50000u};
 
   /// Broadcast socket port number.
-  static constexpr std::uint16_t kBroadcastSocketPort{10000u};
+  static constexpr std::uint16_t kBroadcastSocketPort{50001u};
 
   /// EUI-48 value's start address.
   static constexpr std::uint16_t kEui48StartAddress{0xFAu};
@@ -62,25 +63,22 @@ class Network final {
   /// Socket number for remote command handling.
   static constexpr std::uint8_t kCommandSocket{1u};
 
-  /// Socket number for broadcast protocol.
-  static constexpr std::uint8_t kBroadcastSocket{2u};
+  /// Socket number for animation protocol.
+  static constexpr std::uint8_t kAnimationSocket{2u};
 
   Network();
 
   template <std::size_t N>
-  std::int32_t HandlePacket(const std::uint8_t &socket_number,
-                            std::array<std::uint8_t, N> buffer,
-                            std::array<std::uint8_t, 4u> server_address = {},
-                            std::uint16_t server_port = {});
+  auto HandlePacket(const std::uint8_t &socket_number);
 
   /// Handles broadcast protocol.
-  void FetchFrameBroadcastProtocol();
+  void HandleAnimationProtocol();
 
   /**
    * Handles remote command @see #Command.
    * Can be used without IP address.
    */
-  void FetchRemoteCommand();
+  void HandleCommandProtocol();
 
   /// Flushes socket buffers.
   void FlushBuffers();
