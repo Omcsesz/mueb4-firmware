@@ -4,8 +4,14 @@ ENTRY(Firmware_Updater_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
-/* Main program area flash pages */
+/* Main program flash area pages */
 _main_program_pages = (64K - LENGTH(FLASH)) / 1K;
+
+/* Firmware updater start */
+_firmware_updater_start = ORIGIN(FLASH);
+
+/* Firmware updater flash area pages */
+_firmware_updater_pages = (ORIGIN(FLASH) + 64K - _firmware_updater_start) / 1K;
 
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
@@ -14,7 +20,7 @@ _Min_Stack_Size = 0x400 ;	/* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20001400,   LENGTH = 3K
-  FLASH    (rx)    : ORIGIN = 0x800E400,   LENGTH = 7K
+  FLASH    (rx)    : ORIGIN = 0x800E000,   LENGTH = 8K
 }
 
 /* Sections */

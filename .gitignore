@@ -150,9 +150,9 @@ local.properties
 
 Debug/
 Release/
-build/
 FirmwareUpdater/
 FirmwareUpdaterDebug/
+Release + FirmwareUpdaterDebug
 Drivers/
 Doc/
 

@@ -7,14 +7,20 @@ _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 /* Main program flash area pages */
 _main_program_pages = (64K - LENGTH(FLASH)) / 1K;
 
+/* Firmware updater start */
+_firmware_updater_start = ORIGIN(FLASH);
+
+/* Firmware updater flash area pages */
+_firmware_updater_pages = (ORIGIN(FLASH) + 64K - _firmware_updater_start) / 1K;
+
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
 
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20001000,   LENGTH = 4K
-  FLASH    (rx)    : ORIGIN = 0x800D000,   LENGTH = 12K
+  RAM    (xrw)    : ORIGIN = 0x20001000,   LENGTH = 2K
+  FLASH    (rx)    : ORIGIN = 0x800C000,   LENGTH = 16K
 }
 
 /* Sections */

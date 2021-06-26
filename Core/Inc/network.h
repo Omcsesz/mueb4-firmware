@@ -33,7 +33,8 @@ class Network final {
     kStartFirmwareUpdate,  ///< Start firmware update process
     kGetFirmwareChecksum,  ///< Return main program checksum
     kSwapPanels,           ///< Swap left and right panels
-    kSetWhitebalance       ///< Set white balance
+    kSetWhitebalance,      ///< Set white balance
+    kFlashFirmwareUpdater  ///< Flash firmware updater
   };
 
   Network(const Network &) = delete;
@@ -48,8 +49,11 @@ class Network final {
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 
-  /// Broadcast socket port number.
-  static constexpr std::uint16_t kBroadcastSocketPort{50001u};
+  /// Animation socket port number.
+  static constexpr std::uint16_t kAnimationSocketPort{50001u};
+
+  /// Firmware updater flasher port number.
+  static constexpr std::uint16_t kFirmwareUpdaterFlasherPort{50002u};
 
   /// EUI-48 value's start address.
   static constexpr std::uint16_t kEui48StartAddress{0xFAu};
@@ -65,6 +69,9 @@ class Network final {
 
   /// Socket number for animation protocol.
   static constexpr std::uint8_t kAnimationSocket{2u};
+
+  /// Socket number for firmware updater flasher.
+  static constexpr std::uint8_t kFirmwareUpdaterFlasherSocket{3u};
 
   Network();
 

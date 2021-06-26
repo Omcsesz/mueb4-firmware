@@ -30,8 +30,14 @@ ENTRY(Reset_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
-/* Firmware_Updater_Handler function location in flash */
-_firmware_updater_handler = ORIGIN(FLASH) + LENGTH(FLASH);
+/* End of flash */
+_flash_end = ORIGIN(FLASH) + 64K;
+
+/* Firmware updater start */
+_firmware_updater_start = ORIGIN(FLASH) + LENGTH(FLASH);
+
+/* Firmware updater flash area pages */
+_firmware_updater_pages = (_flash_end - _firmware_updater_start) / 1K;
 
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
@@ -39,8 +45,8 @@ _Min_Stack_Size = 0x400 ;	/* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 4K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 52K
+  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 6K
+  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 48K
 }
 
 /* Sections */
@@ -141,9 +147,9 @@ SECTIONS
     
   } >RAM AT> FLASH
   
-  /* Used to calculate main program flash size */
+  /* Calculate main program flash size in words */
   ._main_program : {
-  	_main_program_end = .;
+  	_main_program_size = (. - ORIGIN(FLASH)) / 4;
   } >FLASH
 
   /* Uninitialized data section into "RAM" Ram type memory */
