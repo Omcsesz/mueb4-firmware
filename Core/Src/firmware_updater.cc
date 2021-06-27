@@ -138,7 +138,7 @@ restart_update:
   std::uint32_t base_addr{FLASH_BASE};
   do {
     std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
-    std::uint16_t *buffer_p{reinterpret_cast<std::uint16_t *>(buffer.data())};
+    std::uint32_t *buffer_p{reinterpret_cast<std::uint32_t *>(buffer.data())};
     recv_size = recv(kFirmwareUpdaterSocket, buffer.data(), FLASH_PAGE_SIZE);
 
     // Overwrite protection
@@ -150,8 +150,8 @@ restart_update:
     }
 
     if (recv_size > 0) {
-      for (std::size_t i = 0; i < recv_size / 2; i++) {
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, base_addr + i * 2,
+      for (std::size_t i = 0; i < recv_size / 4; i++) {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
                               buffer_p[i]) != HAL_OK) {
           // If this fails we can't do much
           disconnect(kFirmwareUpdaterSocket);

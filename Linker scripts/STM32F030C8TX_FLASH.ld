@@ -147,9 +147,9 @@ SECTIONS
     
   } >RAM AT> FLASH
   
-  /* Calculate main program flash size in words */
+  /* Calculate main program flash size */
   ._main_program : {
-  	_main_program_size = (. - ORIGIN(FLASH)) / 4;
+  	_main_program_size = . - 0x8000000;
   } >FLASH
 
   /* Uninitialized data section into "RAM" Ram type memory */

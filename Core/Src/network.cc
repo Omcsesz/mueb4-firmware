@@ -37,6 +37,9 @@ extern std::uintptr_t _flash_end[];
 ///@}
 
 namespace {
+/// Calculate main program flash size in words
+const std::uint32_t kMainProgramSize =
+    reinterpret_cast<std::uint32_t>(_main_program_size) / 4u;
 
 /// Stores the level number where the device is located
 std::uint8_t level_number{0u};
@@ -399,9 +402,25 @@ void Network::HandleCommandProtocol() {
       break;
     }
     case Command::kGetFirmwareChecksum: {
+      auto crc{HAL_CRC_Calculate(&hcrc,
+                                 reinterpret_cast<std::uint32_t *>(FLASH_BASE),
+                                 kMainProgramSize)};
+      /* __REV for endianness fix
+       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
+       */
+      crc = __REV(~crc);
+
+      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
+             server_address.data(), server_port);
+      break;
+    }
+    case Command::kGetFirmwareUpdaterChecksum: {
+      std::uint16_t const firmware_updater_size{
+          (buffer[11] << 8u | buffer[12]) / 4u};
       auto crc{HAL_CRC_Calculate(
-          &hcrc, reinterpret_cast<std::uint32_t *>(FLASH_BASE),
-          reinterpret_cast<std::uint32_t>(_main_program_size))};
+          &hcrc, reinterpret_cast<std::uint32_t *>(_firmware_updater_start),
+          firmware_updater_size)};
+
       /* __REV for endianness fix
        * negate(crc XOR 0xFFFFFFFF) for standard CRC32
        */
@@ -474,8 +493,8 @@ void Network::HandleCommandProtocol() {
           reinterpret_cast<std::uint32_t>(_firmware_updater_start)};
       do {
         std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
-        std::uint16_t *buffer_p{
-            reinterpret_cast<std::uint16_t *>(buffer.data())};
+        std::uint32_t *buffer_p{
+            reinterpret_cast<std::uint32_t *>(buffer.data())};
         recv_size =
             recv(kFirmwareUpdaterFlasherSocket, buffer.data(), FLASH_PAGE_SIZE);
 
@@ -488,8 +507,8 @@ void Network::HandleCommandProtocol() {
         }
 
         if (recv_size > 0) {
-          for (std::size_t i = 0; i < recv_size / 2; i++) {
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, base_addr + i * 2,
+          for (std::size_t i = 0; i < recv_size / 4; i++) {
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
                                   buffer_p[i]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterFlasherSocket);
@@ -502,8 +521,7 @@ void Network::HandleCommandProtocol() {
           // This should not be called because of alignment
           if (recv_size % 2 != 0) {
             std::int32_t last_byte = recv_size - 1;
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
-                                  base_addr + last_byte,
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + last_byte,
                                   buffer[last_byte]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterFlasherSocket);

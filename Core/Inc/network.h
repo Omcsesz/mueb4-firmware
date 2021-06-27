@@ -18,23 +18,24 @@ class Network final {
  public:
   /// Byte code for network commands.
   enum Command {
-    kTurn12vOffLeft,       ///< Turn left panel's 12v off
-    kTurn12vOffRight,      ///< Turn right panel's 12v off
-    kResetLeftPanel,       ///< Reset left panel state
-    kResetRightPanel,      ///< Reset right panel state
-    kReboot,               ///< Reboot device
-    kGetStatus,            ///< Get device's status
-    kGetMac,               ///< Get device's MAC address
-    kUseInternalAnim,      ///< Use internal animation
-    kUseExternalAnim,      ///< Use external animation
-    kBlank,                ///< Blank both panels
-    kFlushSocketBuffers,   ///< Flush socket buffers
-    kPing,                 ///< Send back 'pong' response
-    kStartFirmwareUpdate,  ///< Start firmware update process
-    kGetFirmwareChecksum,  ///< Return main program checksum
-    kSwapPanels,           ///< Swap left and right panels
-    kSetWhitebalance,      ///< Set white balance
-    kFlashFirmwareUpdater  ///< Flash firmware updater
+    kTurn12vOffLeft,              ///< Turn left panel's 12v off
+    kTurn12vOffRight,             ///< Turn right panel's 12v off
+    kResetLeftPanel,              ///< Reset left panel state
+    kResetRightPanel,             ///< Reset right panel state
+    kReboot,                      ///< Reboot device
+    kGetStatus,                   ///< Get device's status
+    kGetMac,                      ///< Get device's MAC address
+    kUseInternalAnim,             ///< Use internal animation
+    kUseExternalAnim,             ///< Use external animation
+    kBlank,                       ///< Blank both panels
+    kFlushSocketBuffers,          ///< Flush socket buffers
+    kPing,                        ///< Send back 'pong' response
+    kStartFirmwareUpdate,         ///< Start firmware update process
+    kGetFirmwareChecksum,         ///< Return main program checksum
+    kGetFirmwareUpdaterChecksum,  ///< Return firmware updater checksum
+    kSwapPanels,                  ///< Swap left and right panels
+    kSetWhitebalance,             ///< Set white balance
+    kFlashFirmwareUpdater         ///< Flash firmware updater
   };
 
   Network(const Network &) = delete;
