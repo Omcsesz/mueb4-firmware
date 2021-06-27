@@ -21,7 +21,7 @@ namespace {
 SPI_HandleTypeDef hspi1;
 
 /// Firmware updater port number.
-constexpr std::uint16_t kFirmwareUpdaterPort{50003u};
+constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
 
 /// Socket number for firmware updater.
 constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
@@ -62,10 +62,14 @@ void SpiWBurst(std::uint8_t *pData, std::uint16_t Size) {
   HAL_SPI_Transmit(&hspi1, pData, Size, HAL_MAX_DELAY);
 }
 
-/// Manages firmware update process.
+/**
+ * Manages firmware update process.
+ * @Note At this point the device should have an IP address, and all peripherals
+ * should be initialized.
+ */
 extern "C" void FirmwareUpdater() {
-  // At this point the device should have an IP address, and all peripherals
-  // should be initialized
+  // Prevent hard fault, no Interrupt vector table after flash erase.
+  __disable_irq();
 
   // Register W5500 callback functions
   reg_wizchip_cs_cbfunc(CsSel, CsDesel);

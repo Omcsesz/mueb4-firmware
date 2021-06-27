@@ -38,7 +38,7 @@ extern "C" void PanelInternalAnimationToggle() {
 }
 
 void Panel::SetInternalAnimation(bool value) {
-  if (!value) {
+  if (!value && internal_animation_enabled_) {
     Panel::BlankAll();
   }
 

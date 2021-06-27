@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iterator>
+#include <utility>
 
 #include "main.h"
 #include "panel.h"
@@ -46,7 +47,7 @@ std::uint8_t room_number{0u};
  * Stores network information.
  * Contains MAC address, Source IP, Subnet mask etc.
  */
-wiz_NetInfo net_info;
+wiz_NetInfo net_info{};
 
 /// WIZnet critical enter
 void CrisEn() { __disable_irq(); }
@@ -93,24 +94,21 @@ inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
   level_number = net_info.ip[2];
   room_number = net_info.ip[3];
+  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 }
 
 void IpAssign() {
   default_ip_assign();
-
   UpdateIp();
-  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 }
 
 void IpUpdate() {
   default_ip_update();
-
   UpdateIp();
 }
 
 void IpConflict() {
   default_ip_conflict();
-
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
 }  // namespace
@@ -131,7 +129,7 @@ Network::Network() {
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
   reg_dhcp_cbfunc(IpAssign, IpUpdate, IpConflict);
 
-  // DHCP, command, broadcast protocol, firmware
+  // DHCP, command protocol, broadcast protocol, firmware socket rx/tx sizes
   std::array<std::uint8_t, 8> txsize{1u, 1u, 1u, 1u};
   std::array<std::uint8_t, 8> rxsize{1u, 1u, 4u, 8u};
   // This includes soft reset
@@ -141,16 +139,14 @@ Network::Network() {
   // The device uses Microchip 24AA02E48T-I/OT EEPROM
   HAL_I2C_Mem_Read(&hi2c2, kEepromAddress, kEui48StartAddress,
                    I2C_MEMADD_SIZE_8BIT, net_info.mac, 6u, HAL_MAX_DELAY);
-
   setSHAR(net_info.mac);
-  net_info.dhcp = dhcp_mode::NETINFO_DHCP;
 
   // Set all capable, Auto-negotiation enabled
   wiz_PhyConf_t phyconf{PHY_CONFBY_SW, PHY_MODE_AUTONEGO};
   wizphy_setphyconf(&phyconf);
 
   // DHCP 1s timer located in stm32f0xx_it.c
-  DHCP_init(kDhcpSocket, dhcp_rx_buffer_);
+  DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
   socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, 0x00u);
@@ -185,34 +181,34 @@ void Network::Step() {
 }
 
 template <std::size_t N>
-auto Network::HandlePacket(const std::uint8_t &socket_number) {
-  std::array<std::uint8_t, N> buffer;
-  std::array<std::uint8_t, 4u> server_address;
+std::tuple<std::int32_t, std::array<std::uint8_t, N>,
+           std::array<std::uint8_t, 4u>, std::uint16_t>
+Network::HandlePacket(const std::uint8_t &socket_number) {
+  std::array<std::uint8_t, N> buffer{};
+  std::array<std::uint8_t, 4u> server_address{};
   std::uint16_t server_port;
-
   std::int32_t size{recvfrom(socket_number, buffer.data(), buffer.size(),
                              server_address.data(), &server_port)};
 
-  if (std::equal(std::begin(net_info.gw), std::end(net_info.gw),
-                 server_address.begin()) &&
-      server_address[3] != 0 &&
-      server_address[4] ==
-          std::clamp(static_cast<unsigned int>(server_address[4]), 1u, 255u)) {
-    return std::make_tuple(static_cast<std::int32_t>(SOCKERR_IPINVALID), buffer,
-                           server_address, server_port);
+  if (size < 0 || (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
+                               server_address.begin()) &&
+                   server_address[2] != 0)) {
+    return std::make_tuple(-1, std::move(buffer), std::move(server_address),
+                           std::move(server_port));
   }
 
-  return std::make_tuple(size, buffer, server_address, server_port);
+  return std::make_tuple(std::move(size), std::move(buffer),
+                         std::move(server_address), std::move(server_port));
 }
 
 void Network::HandleAnimationProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
-  // Handle too small and incorrect packages
   auto [size, buffer, server_address,
         server_port]{HandlePacket<1500u>(kAnimationSocket)};
-  if (buffer[0] != 0x02u || (buffer[0u] == 0x02u && size < 1250)) {
+  // Handle too small and incorrect packages
+  if (buffer[0] != 0x02u || (buffer[0] == 0x02u && size < 1250)) {
     return;
   }
 
@@ -306,9 +302,9 @@ void Network::HandleAnimationProtocol() {
 void Network::HandleCommandProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
 
-  // Handle too small and incorrect packages
   auto [size, buffer, server_address,
         server_port]{HandlePacket<32u>(kCommandSocket)};
+  // Handle too small and incorrect packages
   if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4) {
     return;
   }
@@ -397,10 +393,6 @@ void Network::HandleCommandProtocol() {
              server_port);
       break;
     case Command::kStartFirmwareUpdate: {
-      // Prevent hard fault
-      // No Interrupt vector table after flash erase
-      __disable_irq();
-
       // Generate jump instruction, no going back
       void *f{_firmware_updater_start};
       goto *f;
@@ -458,6 +450,7 @@ void Network::HandleCommandProtocol() {
       // FLASH interface
       if (HAL_FLASH_Unlock() != HAL_OK) {
         disconnect(kFirmwareUpdaterFlasherSocket);
+        close(kFirmwareUpdaterFlasherSocket);
         break;
       }
 
@@ -471,12 +464,14 @@ void Network::HandleCommandProtocol() {
       if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
         // If this fails we can't do much
         disconnect(kFirmwareUpdaterFlasherSocket);
+        close(kFirmwareUpdaterFlasherSocket);
         break;
       }
 
       // Write flash page by page
       std::int32_t recv_size{0};
-      std::uint32_t base_addr{FLASH_BASE};
+      std::uint32_t base_addr{
+          reinterpret_cast<std::uint32_t>(_firmware_updater_start)};
       do {
         std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
         std::uint16_t *buffer_p{
@@ -488,6 +483,7 @@ void Network::HandleCommandProtocol() {
         if (base_addr + recv_size >=
             reinterpret_cast<std::uint32_t>(_flash_end)) {
           disconnect(kFirmwareUpdaterFlasherSocket);
+          close(kFirmwareUpdaterFlasherSocket);
           break;
         }
 
@@ -497,6 +493,7 @@ void Network::HandleCommandProtocol() {
                                   buffer_p[i]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterFlasherSocket);
+              close(kFirmwareUpdaterFlasherSocket);
               break;
             }
           }
@@ -510,14 +507,15 @@ void Network::HandleCommandProtocol() {
                                   buffer[last_byte]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterFlasherSocket);
+              close(kFirmwareUpdaterFlasherSocket);
               break;
             }
           }
 
           base_addr += recv_size;
         } else {
-          // Restart update
           disconnect(kFirmwareUpdaterFlasherSocket);
+          close(kFirmwareUpdaterFlasherSocket);
           break;
         }
 
@@ -525,7 +523,7 @@ void Network::HandleCommandProtocol() {
       } while (getSn_RX_RSR(kFirmwareUpdaterFlasherSocket) != 0 ||
                status != SOCK_CLOSE_WAIT);
 
-      send(kFirmwareUpdaterFlasherPort, (std::uint8_t *)"FLASH_OK", 8u);
+      send(kFirmwareUpdaterFlasherSocket, (std::uint8_t *)"FLASH_OK", 8u);
       disconnect(kFirmwareUpdaterFlasherSocket);
       close(kFirmwareUpdaterFlasherSocket);
 

@@ -76,15 +76,14 @@ class Network final {
   Network();
 
   template <std::size_t N>
-  auto HandlePacket(const std::uint8_t &socket_number);
+  std::tuple<std::int32_t, std::array<std::uint8_t, N>,
+             std::array<std::uint8_t, 4u>, std::uint16_t>
+  HandlePacket(const std::uint8_t &socket_number);
 
-  /// Handles broadcast protocol.
+  /// Handles animation protocol.
   void HandleAnimationProtocol();
 
-  /**
-   * Handles remote command @see #Command.
-   * Can be used without IP address.
-   */
+  /// Handles remote command @see #Command.
   void HandleCommandProtocol();
 
   /// Flushes socket buffers.
@@ -94,7 +93,7 @@ class Network final {
    * DHCP RX buffer.
    * @note 1 kb should be enough for DHCP RX buffer.
    */
-  std::uint8_t dhcp_rx_buffer_[1024u]{};
+  std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_
