@@ -18,23 +18,13 @@ extern UART_HandleTypeDef huart2;
 bool Panel::internal_animation_enabled_{false};
 bool Panel::swapped_{false};
 
-extern "C" void StepInternalAnimation() { Panel::StepInternalAnimation(); }
-
-/**
- * Calls window#time_handler
- * @see ::TIM17_IRQHandler
- */
-extern "C" void PanelTimeHandler() {
-  Panel::left_panel().TimeHandler();
-  Panel::right_panel().TimeHandler();
+void Panel::TimeHandler() {
+  Panel::left_panel().tick_1s_++;
+  Panel::right_panel().tick_1s_++;
 }
 
-/**
- * Used for GPIO USER_INPUT_BUTTON
- * @see ::EXTI2_3_IRQHandler
- */
-extern "C" void PanelInternalAnimationToggle() {
-  Panel::SetInternalAnimation(!Panel::internal_animation_enabled());
+void Panel::ToggleInternalAnimation() {
+  Panel::SetInternalAnimation(!Panel::internal_animation_enabled_);
 }
 
 void Panel::SetInternalAnimation(bool value) {
@@ -178,8 +168,6 @@ void Panel::SetStatus(enum Status status) {
 }
 
 void Panel::Blank() { SendPixels(kPixels); }
-
-void Panel::TimeHandler() { tick_1s_++; }
 
 void Panel::SendPixels(const std::array<Pixel, kPixelCount>& pixels) {
   if (status_ < kVcc3v3On) {

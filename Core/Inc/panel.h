@@ -68,6 +68,18 @@ class Panel final {
   Panel(const Panel&) = delete;
   Panel& operator=(const Panel&) = delete;
 
+  /**
+   * Increase #tick_1s_ by 1.
+   * @see ::TIM17_IRQHandler
+   */
+  static void TimeHandler();
+
+  /**
+   * Used for GPIO USER_INPUT_BUTTON
+   * @see ::EXTI2_3_IRQHandler
+   */
+  static void ToggleInternalAnimation();
+
   static void SetInternalAnimation(bool value);
 
   static bool internal_animation_enabled();
@@ -126,12 +138,6 @@ class Panel final {
    */
   void Blank();
 
-  /**
-   * Increase #tick_1s_ by 1.
-   * @see ::TIM17_IRQHandler
-   */
-  void TimeHandler();
-
   /// Send pixel data to panel.
   void SendPixels(const std::array<Pixel, kPixelCount>& pixels);
 
@@ -144,6 +150,7 @@ class Panel final {
         GPIO_TypeDef* const gpio_port_power, const std::uint16_t gpio_pin_power,
         GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
         UART_HandleTypeDef* const huartx);
+
   /// DMA TX buffer.
   std::array<std::uint8_t, 13u> dma_tx_buffer_{kInitCommand};
 
