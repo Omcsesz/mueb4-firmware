@@ -47,6 +47,9 @@ class Network final {
   void Step();
 
  private:
+  static constexpr std::array<std::uint8_t, 4u>
+      kAnimationSocketMulticastAddress{239, 6, 0, 1};
+
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 

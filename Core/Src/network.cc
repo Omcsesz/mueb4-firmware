@@ -152,7 +152,14 @@ Network::Network() {
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
-  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, 0x00u);
+
+  // Enable multicast and join multicast group
+  setsockopt(
+      kAnimationSocket, SO_DESTIP,
+      const_cast<std::uint8_t *>(kAnimationSocketMulticastAddress.data()));
+  setsockopt(kAnimationSocket, SO_DESTPORT,
+             const_cast<std::uint16_t *>(&kAnimationSocketPort));
+  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
 }
 
 Network &Network::Instance() {
