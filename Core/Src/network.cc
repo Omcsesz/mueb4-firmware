@@ -118,10 +118,10 @@ void IpConflict() {
 
 Network::Network() {
   // Hardware reset W5500
-  HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_RESET);
   // RESET should be held low at least 500 us for W5500
   HAL_Delay(1u);
-  HAL_GPIO_WritePin(W5500_RESET_GPIO_Port, W5500_RESET_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_SET);
   // RSTn to internal PLOCK (PLL Lock)
   HAL_Delay(1u);
 

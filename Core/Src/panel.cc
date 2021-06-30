@@ -56,17 +56,17 @@ Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
 void Panel::SwapPanels() { swapped_ = !swapped_; }
 
 Panel& Panel::left_panel() {
-  static Panel instance(WINDOW_3V3_LEFT_GPIO_Port, WINDOW_3V3_LEFT_Pin,
-                        WINDOW_POWER_LEFT_GPIO_Port, WINDOW_POWER_LEFT_Pin,
-                        WINDOW_TX_LEFT_GPIO_Port, WINDOW_TX_LEFT_Pin, &huart2);
+  static Panel instance(PANEL_3V3_LEFT_GPIO_Port, PANEL_3V3_LEFT_Pin,
+                        PANEL_POWER_LEFT_GPIO_Port, PANEL_POWER_LEFT_Pin,
+                        PANEL_TX_LEFT_GPIO_Port, PANEL_TX_LEFT_Pin, &huart2);
 
   return instance;
 }
 
 Panel& Panel::right_panel() {
-  static Panel instance(WINDOW_3V3_RIGHT_GPIO_Port, WINDOW_3V3_RIGHT_Pin,
-                        WINDOW_POWER_RIGHT_GPIO_Port, WINDOW_POWER_RIGHT_Pin,
-                        WINDOW_TX_RIGHT_GPIO_Port, WINDOW_TX_RIGHT_Pin,
+  static Panel instance(PANEL_3V3_RIGHT_GPIO_Port, PANEL_3V3_RIGHT_Pin,
+                        PANEL_POWER_RIGHT_GPIO_Port, PANEL_POWER_RIGHT_Pin,
+                        PANEL_TX_RIGHT_GPIO_Port, PANEL_TX_RIGHT_Pin,
                         &huart1);
 
   return instance;
