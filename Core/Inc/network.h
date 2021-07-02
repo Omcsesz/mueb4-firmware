@@ -16,6 +16,12 @@
  */
 class Network final {
  public:
+  /// Firmware updater port number.
+  static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
+
+  /// Firmware updater Socket number.
+  static constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
+
   /// Byte code for network commands.
   enum Command {
     kTurn12vOffLeft,              ///< Turn left panel's 12v off
@@ -41,14 +47,16 @@ class Network final {
   Network(const Network &) = delete;
   Network &operator=(const Network &) = delete;
 
+  /// Returns a Network instance.
   static Network &Instance();
 
   /// Network class' loop.
   void Step();
 
  private:
+  /// Animation protocol multicast destination address.
   static constexpr std::array<std::uint8_t, 4u>
-      kAnimationSocketMulticastAddress{239, 6, 0, 1};
+      kAnimationSocketMulticastAddress{239u, 6u, 0u, 1u};
 
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
@@ -56,26 +64,23 @@ class Network final {
   /// Animation socket port number.
   static constexpr std::uint16_t kAnimationSocketPort{50001u};
 
-  /// Firmware updater flasher port number.
-  static constexpr std::uint16_t kFirmwareUpdaterFlasherPort{50002u};
-
-  /// EUI-48 value's start address.
-  static constexpr std::uint16_t kEui48StartAddress{0xFAu};
+  /// EUI-48 MAC start address.
+  static constexpr std::uint16_t kEui48MacStartAddress{0xFAu};
 
   /// EEPROM I2C device address.
   static constexpr std::uint8_t kEepromAddress{0b10100001u};
 
-  /// Socket number for DHCP.
+  /// DHCP socket number.
   static constexpr std::uint8_t kDhcpSocket{0u};
 
-  /// Socket number for remote command handling.
+  /// Command socket number.
   static constexpr std::uint8_t kCommandSocket{1u};
 
-  /// Socket number for animation protocol.
+  /// Animation socket number.
   static constexpr std::uint8_t kAnimationSocket{2u};
 
-  /// Socket number for firmware updater flasher.
-  static constexpr std::uint8_t kFirmwareUpdaterFlasherSocket{3u};
+  /// Currently supported protocol version number.
+  static constexpr std::uint8_t kAnimationProtocolVersion{2u};
 
   Network();
 
@@ -87,15 +92,18 @@ class Network final {
   /// Handles animation protocol.
   void HandleAnimationProtocol();
 
-  /// Handles remote command @see #Command.
+  /**
+   * Handles remote command.
+   * @see #Command.
+   */
   void HandleCommandProtocol();
 
   /// Flushes socket buffers.
-  void FlushBuffers();
+  void FlushSocketBuffers();
 
   /**
    * DHCP RX buffer.
-   * @note 1 kb should be enough for DHCP RX buffer.
+   * @note 1 KB should be enough for DHCP RX buffer.
    */
   std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
 };

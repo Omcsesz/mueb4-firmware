@@ -20,16 +20,16 @@
 #include "main.h"
 #include "panel.h"
 #include "version.h"
+#include "wiznet_callbacs.h"
 
 ///@{
-/// Defined in main.c
+/// Defined in main.c.
 extern CRC_HandleTypeDef hcrc;
-extern SPI_HandleTypeDef hspi1;
 extern I2C_HandleTypeDef hi2c2;
 ///@}
 
 ///@{
-/// Defined in linker script
+/// Defined in linker script.
 extern std::uintptr_t _firmware_updater_start[];
 extern std::uintptr_t _firmware_updater_pages[];
 extern std::uintptr_t _main_program_size[];
@@ -37,7 +37,7 @@ extern std::uintptr_t _flash_end[];
 ///@}
 
 namespace {
-/// Calculate main program flash size in words
+/// Stores main program flash size in words.
 const std::uint32_t kMainProgramSize =
     reinterpret_cast<std::uint32_t>(_main_program_size) / 4u;
 
@@ -51,47 +51,6 @@ std::uint8_t room_number{0u};
  * Contains MAC address, Source IP, Subnet mask etc.
  */
 wiz_NetInfo net_info{};
-
-/// WIZnet critical enter
-void CrisEn() { __disable_irq(); }
-
-/// WIZnet critical exit
-void CrisEx() { __enable_irq(); }
-
-/// WIZnet chip select
-void CsSel() {
-  // ChipSelect to low
-  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
-}
-
-/// WIZnet chip deselect
-void CsDesel() {
-  // ChipSelect to high
-  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-}
-
-/// Read byte from WIZnet chip through SPI
-std::uint8_t SpiRb() {
-  std::uint8_t pData;
-  HAL_SPI_Receive(&hspi1, &pData, 1u, HAL_MAX_DELAY);
-
-  return pData;
-}
-
-/// Write byte to WIZnet chip through SPI
-void SpiWb(std::uint8_t pData) {
-  HAL_SPI_Transmit(&hspi1, &pData, 1u, HAL_MAX_DELAY);
-}
-
-/// Read burst from WIZnet chip through SPI
-void SpiRBurst(std::uint8_t *pData, std::uint16_t Size) {
-  HAL_SPI_Receive(&hspi1, pData, Size, HAL_MAX_DELAY);
-}
-
-/// Write burst to WIZnet chip through SPI
-void SpiWBurst(std::uint8_t *pData, std::uint16_t Size) {
-  HAL_SPI_Transmit(&hspi1, pData, Size, HAL_MAX_DELAY);
-}
 
 inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
@@ -114,9 +73,11 @@ void IpConflict() {
   default_ip_conflict();
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
+
 }  // namespace
 
 Network::Network() {
+  // -- Do not remove --
   // Hardware reset W5500
   HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_RESET);
   // RESET should be held low at least 500 us for W5500
@@ -124,6 +85,7 @@ Network::Network() {
   HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_SET);
   // RSTn to internal PLOCK (PLL Lock)
   HAL_Delay(1u);
+  // -- Do not remove --
 
   // Register W5500 callback functions
   reg_wizchip_cris_cbfunc(CrisEn, CrisEx);
@@ -140,7 +102,7 @@ Network::Network() {
 
   // Gets MAC address from EEPROM.
   // The device uses Microchip 24AA02E48T-I/OT EEPROM
-  HAL_I2C_Mem_Read(&hi2c2, kEepromAddress, kEui48StartAddress,
+  HAL_I2C_Mem_Read(&hi2c2, kEepromAddress, kEui48MacStartAddress,
                    I2C_MEMADD_SIZE_8BIT, net_info.mac, 6u, HAL_MAX_DELAY);
   setSHAR(net_info.mac);
 
@@ -148,7 +110,7 @@ Network::Network() {
   wiz_PhyConf_t phyconf{PHY_CONFBY_SW, PHY_MODE_AUTONEGO};
   wizphy_setphyconf(&phyconf);
 
-  // DHCP 1s timer located in stm32f0xx_it.c
+  // DHCP 1s timer located in interrupt.cc
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
@@ -171,6 +133,7 @@ Network &Network::Instance() {
 void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
+
     if (DHCP_run() == DHCP_FAILED) {
       HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
     }
@@ -212,9 +175,6 @@ Network::HandlePacket(const std::uint8_t &socket_number) {
 }
 
 void Network::HandleAnimationProtocol() {
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
-  Panel::SetInternalAnimation(false);
-
   auto [size, buffer, server_address,
         server_port]{HandlePacket<1500u>(kAnimationSocket)};
   // Handle too small and incorrect packages
@@ -222,19 +182,20 @@ void Network::HandleAnimationProtocol() {
     return;
   }
 
-  if (buffer[0] == 0x02u) {
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
+  Panel::SetInternalAnimation(false);
+
+  if (buffer[0] == kAnimationProtocolVersion) {
     std::uint32_t base_offset{0u};
     std::size_t running_offset{0u};
     auto left_panel_pixels{Panel::kPixels};
     auto right_panel_pixels{Panel::kPixels};
 
-    /* Read compressed pixels row wise from frame buffer using 2x2 window
-     * 2x2 window position is based on room index
-     * Data can be read as a 16x26 2D array
-     * room row * 32 vertical unit
-     * room column * 2 horizontal unit
-     * 3 byte per unit
-     * 2 byte packet header
+    /*
+     * Read compressed pixels row wise from frame buffer assuming 2x2 left,
+     * right panel. The 2x2 window position is based on room index Data can be
+     * read as a 16x26 2D array room row * 32 vertical unit room column * 2
+     * horizontal unit 3 byte per unit 2 byte packet header
      */
     base_offset =
         ((18u - level_number) * 32u + (room_number - 5u) * 2u) * 3u + 2u;
@@ -396,7 +357,7 @@ void Network::HandleCommandProtocol() {
       break;
     }
     case Command::kFlushSocketBuffers:
-      FlushBuffers();
+      FlushSocketBuffers();
       break;
     case Command::kPing:
       sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
@@ -457,26 +418,25 @@ void Network::HandleCommandProtocol() {
         break;
       }
 
-      if (socket(kFirmwareUpdaterFlasherSocket, Sn_MR_TCP,
-                 kFirmwareUpdaterFlasherPort,
-                 0x00) != kFirmwareUpdaterFlasherSocket) {
+      if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort,
+                 0x00) != kFirmwareUpdaterSocket) {
         break;
       }
 
-      if (listen(kFirmwareUpdaterFlasherSocket) != SOCK_OK) {
+      if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
         break;
       }
 
       std::uint8_t status;
       do {
-        getsockopt(kFirmwareUpdaterFlasherSocket, SO_STATUS, &status);
+        getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
       } while (status != SOCK_ESTABLISHED);
 
       // The function HAL_FLASH_Unlock() should be called before to unlock the
       // FLASH interface
       if (HAL_FLASH_Unlock() != HAL_OK) {
-        disconnect(kFirmwareUpdaterFlasherSocket);
-        close(kFirmwareUpdaterFlasherSocket);
+        disconnect(kFirmwareUpdaterSocket);
+        close(kFirmwareUpdaterSocket);
         break;
       }
 
@@ -489,8 +449,8 @@ void Network::HandleCommandProtocol() {
       std::uint32_t PageError;
       if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
         // If this fails we can't do much
-        disconnect(kFirmwareUpdaterFlasherSocket);
-        close(kFirmwareUpdaterFlasherSocket);
+        disconnect(kFirmwareUpdaterSocket);
+        close(kFirmwareUpdaterSocket);
         break;
       }
 
@@ -503,13 +463,13 @@ void Network::HandleCommandProtocol() {
         std::uint32_t *buffer_p{
             reinterpret_cast<std::uint32_t *>(buffer.data())};
         recv_size =
-            recv(kFirmwareUpdaterFlasherSocket, buffer.data(), FLASH_PAGE_SIZE);
+            recv(kFirmwareUpdaterSocket, buffer.data(), FLASH_PAGE_SIZE);
 
         // Overwrite protection
         if (base_addr + recv_size >=
             reinterpret_cast<std::uint32_t>(_flash_end)) {
-          disconnect(kFirmwareUpdaterFlasherSocket);
-          close(kFirmwareUpdaterFlasherSocket);
+          disconnect(kFirmwareUpdaterSocket);
+          close(kFirmwareUpdaterSocket);
           break;
         }
 
@@ -518,8 +478,8 @@ void Network::HandleCommandProtocol() {
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
                                   buffer_p[i]) != HAL_OK) {
               // If this fails we can't do much
-              disconnect(kFirmwareUpdaterFlasherSocket);
-              close(kFirmwareUpdaterFlasherSocket);
+              disconnect(kFirmwareUpdaterSocket);
+              close(kFirmwareUpdaterSocket);
               break;
             }
           }
@@ -531,26 +491,26 @@ void Network::HandleCommandProtocol() {
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + last_byte,
                                   buffer[last_byte]) != HAL_OK) {
               // If this fails we can't do much
-              disconnect(kFirmwareUpdaterFlasherSocket);
-              close(kFirmwareUpdaterFlasherSocket);
+              disconnect(kFirmwareUpdaterSocket);
+              close(kFirmwareUpdaterSocket);
               break;
             }
           }
 
           base_addr += recv_size;
         } else {
-          disconnect(kFirmwareUpdaterFlasherSocket);
-          close(kFirmwareUpdaterFlasherSocket);
+          disconnect(kFirmwareUpdaterSocket);
+          close(kFirmwareUpdaterSocket);
           break;
         }
 
-        getsockopt(kFirmwareUpdaterFlasherSocket, SO_STATUS, &status);
-      } while (getSn_RX_RSR(kFirmwareUpdaterFlasherSocket) != 0 ||
+        getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
+      } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0 ||
                status != SOCK_CLOSE_WAIT);
 
-      send(kFirmwareUpdaterFlasherSocket, (std::uint8_t *)"FLASH_OK", 8u);
-      disconnect(kFirmwareUpdaterFlasherSocket);
-      close(kFirmwareUpdaterFlasherSocket);
+      send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
+      disconnect(kFirmwareUpdaterSocket);
+      close(kFirmwareUpdaterSocket);
 
       // The function HAL_FLASH_Lock() should be called after to lock the FLASH
       // interface
@@ -563,7 +523,7 @@ void Network::HandleCommandProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
-void Network::FlushBuffers() {
+void Network::FlushSocketBuffers() {
   auto size{getSn_RX_RSR(kCommandSocket)};
 
   if (size) {

@@ -13,54 +13,13 @@
 #include <cstdint>
 
 #include "main.h"
+#include "network.h"
+#include "wiznet_callbacs.h"
 
 extern std::uintptr_t _main_program_pages[];
 extern std::uintptr_t _firmware_updater_start[];
 
-namespace {
-SPI_HandleTypeDef hspi1;
-
-/// Firmware updater port number.
-constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
-
-/// Socket number for firmware updater.
-constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
-}  // namespace
-
-/// WIZnet chip select
-void CsSel() {
-  // ChipSelect to low
-  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_RESET);
-}
-
-/// WIZnet chip deselect
-void CsDesel() {
-  // ChipSelect to high
-  HAL_GPIO_WritePin(SPI1_NSS_GPIO_Port, SPI1_NSS_Pin, GPIO_PIN_SET);
-}
-
-/// Read byte from WIZnet chip through SPI
-std::uint8_t SpiRb() {
-  std::uint8_t pData;
-  HAL_SPI_Receive(&hspi1, &pData, 1u, HAL_MAX_DELAY);
-
-  return pData;
-}
-
-/// Write byte to WIZnet chip through SPI
-void SpiWb(std::uint8_t pData) {
-  HAL_SPI_Transmit(&hspi1, &pData, 1u, HAL_MAX_DELAY);
-}
-
-/// Read burst from WIZnet chip through SPI
-void SpiRBurst(std::uint8_t *pData, std::uint16_t Size) {
-  HAL_SPI_Receive(&hspi1, pData, Size, HAL_MAX_DELAY);
-}
-
-/// Write burst to WIZnet chip through SPI
-void SpiWBurst(std::uint8_t *pData, std::uint16_t Size) {
-  HAL_SPI_Transmit(&hspi1, pData, Size, HAL_MAX_DELAY);
-}
+static SPI_HandleTypeDef hspi1;
 
 /**
  * Manages firmware update process.
@@ -100,24 +59,25 @@ extern "C" void FirmwareUpdater() {
   }
 
 restart_update:
-  if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort, 0x00) !=
-      kFirmwareUpdaterSocket) {
+  if (socket(Network::kFirmwareUpdaterSocket, Sn_MR_TCP,
+             Network::kFirmwareUpdaterPort,
+             0x00) != Network::kFirmwareUpdaterSocket) {
     HAL_NVIC_SystemReset();
   }
 
-  if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
+  if (listen(Network::kFirmwareUpdaterSocket) != SOCK_OK) {
     HAL_NVIC_SystemReset();
   }
 
   std::uint8_t status;
   do {
-    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
+    getsockopt(Network::kFirmwareUpdaterSocket, SO_STATUS, &status);
   } while (status != SOCK_ESTABLISHED);
 
   // The function HAL_FLASH_Unlock() should be called before to unlock the FLASH
   // interface
   if (HAL_FLASH_Unlock() != HAL_OK) {
-    disconnect(kFirmwareUpdaterSocket);
+    disconnect(Network::kFirmwareUpdaterSocket);
     HAL_NVIC_SystemReset();
   }
 
@@ -129,7 +89,7 @@ restart_update:
   std::uint32_t PageError;
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     // If this fails we can't do much
-    disconnect(kFirmwareUpdaterSocket);
+    disconnect(Network::kFirmwareUpdaterSocket);
     return;
   }
 
@@ -139,13 +99,14 @@ restart_update:
   do {
     std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
     std::uint32_t *buffer_p{reinterpret_cast<std::uint32_t *>(buffer.data())};
-    recv_size = recv(kFirmwareUpdaterSocket, buffer.data(), FLASH_PAGE_SIZE);
+    recv_size =
+        recv(Network::kFirmwareUpdaterSocket, buffer.data(), FLASH_PAGE_SIZE);
 
     // Overwrite protection
     if (base_addr + recv_size >=
         reinterpret_cast<std::uint32_t>(_firmware_updater_start)) {
       // At this point no return to main program, need to restart update
-      disconnect(kFirmwareUpdaterSocket);
+      disconnect(Network::kFirmwareUpdaterSocket);
       goto restart_update;
     }
 
@@ -154,7 +115,7 @@ restart_update:
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
                               buffer_p[i]) != HAL_OK) {
           // If this fails we can't do much
-          disconnect(kFirmwareUpdaterSocket);
+          disconnect(Network::kFirmwareUpdaterSocket);
           return;
         }
       }
@@ -166,7 +127,7 @@ restart_update:
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, base_addr + last_byte,
                               buffer[last_byte]) != HAL_OK) {
           // If this fails we can't do much
-          disconnect(kFirmwareUpdaterSocket);
+          disconnect(Network::kFirmwareUpdaterSocket);
           return;
         }
       }
@@ -174,17 +135,17 @@ restart_update:
       base_addr += recv_size;
     } else {
       // Restart update
-      disconnect(kFirmwareUpdaterSocket);
+      disconnect(Network::kFirmwareUpdaterSocket);
       goto restart_update;
     }
 
-    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0 ||
+    getsockopt(Network::kFirmwareUpdaterSocket, SO_STATUS, &status);
+  } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0 ||
            status != SOCK_CLOSE_WAIT);
 
-  send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
-  disconnect(kFirmwareUpdaterSocket);
-  close(kFirmwareUpdaterSocket);
+  send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
+  disconnect(Network::kFirmwareUpdaterSocket);
+  close(Network::kFirmwareUpdaterSocket);
 
   // The function HAL_FLASH_Lock() should be called after to lock the FLASH
   // interface
