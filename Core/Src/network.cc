@@ -30,10 +30,10 @@ extern I2C_HandleTypeDef hi2c2;
 
 ///@{
 /// Defined in linker script.
-extern std::uintptr_t _firmware_updater_start[];
-extern std::uintptr_t _firmware_updater_pages[];
-extern std::uintptr_t _main_program_size[];
-extern std::uintptr_t _flash_end[];
+extern std::uint32_t _firmware_updater_start[];
+extern std::uint32_t _firmware_updater_pages[];
+extern std::uint32_t _main_program_size[];
+extern std::uint32_t _flash_end[];
 ///@}
 
 namespace {
@@ -95,8 +95,8 @@ Network::Network() {
   reg_dhcp_cbfunc(IpAssign, IpUpdate, IpConflict);
 
   // DHCP, command protocol, broadcast protocol, firmware socket rx/tx sizes
-  std::array<std::uint8_t, 8> txsize{1u, 1u, 1u, 1u};
-  std::array<std::uint8_t, 8> rxsize{1u, 1u, 4u, 8u};
+  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u};
+  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 8u};
   // This includes soft reset
   wizchip_init(txsize.data(), rxsize.data());
 
@@ -156,7 +156,7 @@ void Network::Step() {
 template <std::size_t N>
 std::tuple<std::int32_t, std::array<std::uint8_t, N>,
            std::array<std::uint8_t, 4u>, std::uint16_t>
-Network::HandlePacket(const std::uint8_t &socket_number) {
+Network::CheckIpAddress(const std::uint8_t &socket_number) {
   std::array<std::uint8_t, N> buffer{};
   std::array<std::uint8_t, 4u> server_address{};
   std::uint16_t server_port;
@@ -165,7 +165,7 @@ Network::HandlePacket(const std::uint8_t &socket_number) {
 
   if (size < 0 || (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
                                server_address.begin()) &&
-                   server_address[2] != 0)) {
+                   server_address[2] != 0u)) {
     return std::make_tuple(-1, std::move(buffer), std::move(server_address),
                            std::move(server_port));
   }
@@ -176,95 +176,40 @@ Network::HandlePacket(const std::uint8_t &socket_number) {
 
 void Network::HandleAnimationProtocol() {
   auto [size, buffer, server_address,
-        server_port]{HandlePacket<1500u>(kAnimationSocket)};
+        server_port]{CheckIpAddress<1500u>(kAnimationSocket)};
   // Handle too small and incorrect packages
-  if (buffer[0] != 0x02u || (buffer[0] == 0x02u && size < 1250)) {
+  if (buffer[0] != kAnimationProtocolVersion ||
+      (buffer[0] == kAnimationProtocolVersion &&
+       size < kAnimationProtocolSize)) {
     return;
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
-  if (buffer[0] == kAnimationProtocolVersion) {
-    std::uint32_t base_offset{0u};
-    std::size_t running_offset{0u};
-    auto left_panel_pixels{Panel::kPixels};
-    auto right_panel_pixels{Panel::kPixels};
+  std::uint32_t base_offset =
+      ((18u - level_number) * 96u + (room_number - 5u) * 6u) + 2u;
+  auto buffer_begin{buffer.begin() + base_offset};
+  Panel::PanelColorData colors{};
+  auto colors_begin{colors.begin()};
 
-    /*
-     * Read compressed pixels row wise from frame buffer assuming 2x2 left,
-     * right panel. The 2x2 window position is based on room index Data can be
-     * read as a 16x26 2D array room row * 32 vertical unit room column * 2
-     * horizontal unit 3 byte per unit 2 byte packet header
-     */
-    base_offset =
-        ((18u - level_number) * 32u + (room_number - 5u) * 2u) * 3u + 2u;
+  for (auto [i, bytes] = std::tuple(buffer_begin, 0u);; i++, bytes++) {
+    if (bytes == 3u || bytes == 9u) {
+      // Jump to next row
+      i -= 3u + 48u;
+    } else if (bytes == 6u) {
+      Panel::GetPanel(Panel::LEFT).SendPixels(colors);
+      i -= 48u;
+      colors_begin = colors.begin();
+    } else if (bytes == 12u) {
+      Panel::GetPanel(Panel::RIGHT).SendPixels(colors);
+      break;
+    }
 
-    // First row
-    left_panel_pixels[0].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    left_panel_pixels[0].green =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    left_panel_pixels[0].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-
-    left_panel_pixels[1].red =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    left_panel_pixels[1].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    left_panel_pixels[1].blue =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-
-    right_panel_pixels[0].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    right_panel_pixels[0].green =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    right_panel_pixels[0].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-
-    right_panel_pixels[1].red =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    right_panel_pixels[1].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    right_panel_pixels[1].blue =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-
-    /*
-     * Second row
-     * Byte per row = 8 room_number per row * 6 byte per window row
-     */
-    running_offset = 48u;
-
-    left_panel_pixels[2].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    left_panel_pixels[2].green =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    left_panel_pixels[2].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-
-    left_panel_pixels[3].red =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    left_panel_pixels[3].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    left_panel_pixels[3].blue =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-
-    right_panel_pixels[2].red =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    right_panel_pixels[2].green =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    right_panel_pixels[2].blue =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-
-    right_panel_pixels[3].red =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-    right_panel_pixels[3].green =
-        (buffer[(base_offset + running_offset)] & 0xF0u) >> 4u;
-    right_panel_pixels[3].blue =
-        (buffer[(base_offset + running_offset++)] & 0x0Fu);
-
-    Panel::GetPanel(Panel::LEFT).SendPixels(left_panel_pixels);
-    Panel::GetPanel(Panel::RIGHT).SendPixels(right_panel_pixels);
+    *colors_begin = (*i & 0xF0u) >> 4u;
+    colors_begin++;
+    *colors_begin = *i & 0x0Fu;
+    colors_begin++;
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
@@ -274,7 +219,7 @@ void Network::HandleCommandProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
 
   auto [size, buffer, server_address,
-        server_port]{HandlePacket<32u>(kCommandSocket)};
+        server_port]{CheckIpAddress<32u>(kCommandSocket)};
   // Handle too small and incorrect packages
   if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4) {
     return;
@@ -348,7 +293,7 @@ void Network::HandleCommandProtocol() {
       break;
     }
     case Command::kGetMac: {
-      std::array<char, 18> mac{};
+      std::array<char, 18u> mac{};
       sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
              std::snprintf(mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x",
                            net_info.mac[0], net_info.mac[1], net_info.mac[2],
@@ -402,7 +347,7 @@ void Network::HandleCommandProtocol() {
       Panel::SwapPanels();
       break;
     case Command::kSetWhitebalance: {
-      auto white_balance{Panel::kWhiteBalance};
+      Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
       Panel::GetPanel(Panel::LEFT).SendWhitebalance(white_balance);
@@ -419,7 +364,7 @@ void Network::HandleCommandProtocol() {
       }
 
       if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort,
-                 0x00) != kFirmwareUpdaterSocket) {
+                 0x00u) != kFirmwareUpdaterSocket) {
         break;
       }
 
@@ -455,7 +400,7 @@ void Network::HandleCommandProtocol() {
       }
 
       // Write flash page by page
-      std::int32_t recv_size{0};
+      std::int32_t recv_size{0u};
       std::uint32_t base_addr{
           reinterpret_cast<std::uint32_t>(_firmware_updater_start)};
       do {
@@ -474,8 +419,8 @@ void Network::HandleCommandProtocol() {
         }
 
         if (recv_size > 0) {
-          for (std::size_t i = 0; i < recv_size / 4; i++) {
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
+          for (std::size_t i{0u}; i < recv_size / 4u; i++) {
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4u,
                                   buffer_p[i]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterSocket);
@@ -486,8 +431,8 @@ void Network::HandleCommandProtocol() {
 
           // Handle odd recv_size, write last byte
           // This should not be called because of alignment
-          if (recv_size % 2 != 0) {
-            std::int32_t last_byte = recv_size - 1;
+          if (recv_size % 2u != 0u) {
+            std::int32_t last_byte = recv_size - 1u;
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + last_byte,
                                   buffer[last_byte]) != HAL_OK) {
               // If this fails we can't do much
@@ -505,7 +450,7 @@ void Network::HandleCommandProtocol() {
         }
 
         getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-      } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0 ||
+      } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0u ||
                status != SOCK_CLOSE_WAIT);
 
       send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);

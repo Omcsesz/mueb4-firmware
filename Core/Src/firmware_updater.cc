@@ -19,7 +19,7 @@
 extern std::uintptr_t _main_program_pages[];
 extern std::uintptr_t _firmware_updater_start[];
 
-static SPI_HandleTypeDef hspi1;
+SPI_HandleTypeDef hspi1;
 
 /**
  * Manages firmware update process.
@@ -61,7 +61,7 @@ extern "C" void FirmwareUpdater() {
 restart_update:
   if (socket(Network::kFirmwareUpdaterSocket, Sn_MR_TCP,
              Network::kFirmwareUpdaterPort,
-             0x00) != Network::kFirmwareUpdaterSocket) {
+             0x00u) != Network::kFirmwareUpdaterSocket) {
     HAL_NVIC_SystemReset();
   }
 
@@ -94,7 +94,7 @@ restart_update:
   }
 
   // Write flash page by page
-  std::int32_t recv_size{0};
+  std::int32_t recv_size{0u};
   std::uint32_t base_addr{FLASH_BASE};
   do {
     std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
@@ -111,8 +111,8 @@ restart_update:
     }
 
     if (recv_size > 0) {
-      for (std::size_t i = 0; i < recv_size / 4; i++) {
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4,
+      for (std::size_t i = 0u; i < recv_size / 4u; i++) {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4u,
                               buffer_p[i]) != HAL_OK) {
           // If this fails we can't do much
           disconnect(Network::kFirmwareUpdaterSocket);
@@ -122,8 +122,8 @@ restart_update:
 
       // Handle odd recv_size, write last byte
       // This should not be called because of alignment
-      if (recv_size % 2 != 0) {
-        std::int32_t last_byte = recv_size - 1;
+      if (recv_size % 2u != 0u) {
+        std::int32_t last_byte = recv_size - 1u;
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, base_addr + last_byte,
                               buffer[last_byte]) != HAL_OK) {
           // If this fails we can't do much
@@ -140,7 +140,7 @@ restart_update:
     }
 
     getsockopt(Network::kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0 ||
+  } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
            status != SOCK_CLOSE_WAIT);
 
   send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);

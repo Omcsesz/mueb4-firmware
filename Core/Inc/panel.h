@@ -13,19 +13,6 @@
 
 #include "main.h"
 
-/// Stores pixel data including position.
-struct Pixel final {
-  enum Position {
-    kTopLeft,
-    kTopRight,
-    kBottomLeft,
-    kBottomRight
-  } position{kTopLeft};
-  std::uint8_t red{0u};
-  std::uint8_t green{0u};
-  std::uint8_t blue{0u};
-};
-
 /// Manages all panel related functionality.
 class Panel final {
  public:
@@ -47,23 +34,21 @@ class Panel final {
   /// Stores pixel amount on one panel.
   static constexpr std::size_t kPixelCount{4u};
 
+  /// Stores pixels size in bytes.
+  static constexpr std::size_t kPanelColorDataSize{kPixelCount * 3u};
+
+  /// Stores the color values of the panel pixels.
+  using PanelColorData = std::array<std::uint8_t, kPanelColorDataSize>;
+
   /// Stores white balance data size.
   static constexpr std::size_t kWhiteBalanceDataSize{21u};
+
+  /// Stores white balance configuration data.
+  using WhiteBalanceData = std::array<std::uint8_t, kWhiteBalanceDataSize>;
 
   static constexpr std::uint8_t kInitCommand{0xF0u};
 
   static constexpr std::uint8_t kConfigCommand{0xE0u};
-
-  /// Stores white balance configuration data.
-  static constexpr std::array<std::uint8_t, kWhiteBalanceDataSize>
-      kWhiteBalance{};
-
-  /// Stores list of default pixel objects.
-  static constexpr std::array<Pixel, kPixelCount> kPixels{
-      {{Pixel::kTopLeft},
-       {Pixel::kTopRight},
-       {Pixel::kBottomLeft},
-       {Pixel::kBottomRight}}};
 
   Panel(const Panel&) = delete;
   Panel& operator=(const Panel&) = delete;
@@ -139,11 +124,10 @@ class Panel final {
   void Blank();
 
   /// Send pixel data to panel.
-  void SendPixels(const std::array<Pixel, kPixelCount>& pixels);
+  void SendPixels(const PanelColorData& pixels);
 
   /// Send white balance data to panel.
-  void SendWhitebalance(
-      const std::array<std::uint8_t, kWhiteBalanceDataSize>& white_balance);
+  void SendWhitebalance(const WhiteBalanceData& white_balance);
 
  private:
   Panel(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
@@ -152,9 +136,10 @@ class Panel final {
         UART_HandleTypeDef* const huartx);
 
   /// DMA TX buffer.
-  std::array<std::uint8_t, 13u> dma_tx_buffer_{kInitCommand};
+  std::array<std::uint8_t, kPanelColorDataSize + 1u> dma_tx_buffer_{
+      kInitCommand};
 
-  std::array<std::uint8_t, kWhiteBalanceDataSize + 1> white_balance_{
+  std::array<std::uint8_t, kWhiteBalanceDataSize + 1u> white_balance_{
       kConfigCommand};
 
   /// Stores state of panel @see #Status.

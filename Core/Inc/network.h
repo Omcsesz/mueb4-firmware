@@ -16,12 +16,6 @@
  */
 class Network final {
  public:
-  /// Firmware updater port number.
-  static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
-
-  /// Firmware updater Socket number.
-  static constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
-
   /// Byte code for network commands.
   enum Command {
     kTurn12vOffLeft,              ///< Turn left panel's 12v off
@@ -43,6 +37,12 @@ class Network final {
     kSetWhitebalance,             ///< Set white balance
     kFlashFirmwareUpdater         ///< Flash firmware updater
   };
+
+  /// Firmware updater port number.
+  static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
+
+  /// Firmware updater Socket number.
+  static constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
 
   Network(const Network &) = delete;
   Network &operator=(const Network &) = delete;
@@ -79,15 +79,18 @@ class Network final {
   /// Animation socket number.
   static constexpr std::uint8_t kAnimationSocket{2u};
 
-  /// Currently supported protocol version number.
+  /// Currently supported animation protocol version number.
   static constexpr std::uint8_t kAnimationProtocolVersion{2u};
+
+  /// Expected animation protocol packet size.
+  static constexpr std::uint16_t kAnimationProtocolSize{1250u};
 
   Network();
 
   template <std::size_t N>
   std::tuple<std::int32_t, std::array<std::uint8_t, N>,
              std::array<std::uint8_t, 4u>, std::uint16_t>
-  HandlePacket(const std::uint8_t &socket_number);
+  CheckIpAddress(const std::uint8_t &socket_number);
 
   /// Handles animation protocol.
   void HandleAnimationProtocol();

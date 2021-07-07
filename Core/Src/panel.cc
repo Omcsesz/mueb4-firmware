@@ -66,8 +66,7 @@ Panel& Panel::left_panel() {
 Panel& Panel::right_panel() {
   static Panel instance(PANEL_3V3_RIGHT_GPIO_Port, PANEL_3V3_RIGHT_Pin,
                         PANEL_POWER_RIGHT_GPIO_Port, PANEL_POWER_RIGHT_Pin,
-                        PANEL_TX_RIGHT_GPIO_Port, PANEL_TX_RIGHT_Pin,
-                        &huart1);
+                        PANEL_TX_RIGHT_GPIO_Port, PANEL_TX_RIGHT_Pin, &huart1);
 
   return instance;
 }
@@ -90,15 +89,15 @@ void Panel::StepInternalAnimation() {
   static std::uint8_t color{0u};
   static std::uint8_t phase{0u};
 
-  auto pixels{kPixels};
-  for (auto& pixel : pixels) {
-    pixel.red = (phase == 0u) ? color : 0u;
-    pixel.green = (phase == 1u) ? color : 0u;
-    pixel.blue = (phase == 2u) ? color : 0u;
+  Panel::PanelColorData colors{};
+  for (auto i{colors.begin()}; i != colors.end(); i++) {
+    *i = (phase == 0u) ? color : 0u;    // red
+    *++i = (phase == 1u) ? color : 0u;  // green
+    *++i = (phase == 2u) ? color : 0u;  // blue
   }
 
-  Panel::right_panel().SendPixels(pixels);
-  Panel::left_panel().SendPixels(pixels);
+  Panel::right_panel().SendPixels(colors);
+  Panel::left_panel().SendPixels(colors);
 
   if (++color == 8u) {
     color = 0u;
@@ -167,33 +166,26 @@ void Panel::SetStatus(enum Status status) {
   status_ = status;
 }
 
-void Panel::Blank() { SendPixels(kPixels); }
+void Panel::Blank() { SendPixels(Panel::PanelColorData{}); }
 
-void Panel::SendPixels(const std::array<Pixel, kPixelCount>& pixels) {
+void Panel::SendPixels(const PanelColorData& pixels) {
   if (status_ < kVcc3v3On) {
     return;
   }
 
-  // Besides the first F0 byte
-  std::size_t transfer_size{1u};
-  for (const auto& pixel : pixels) {
-    std::uint8_t base = pixel.position * 3u;
-
-    dma_tx_buffer_[transfer_size++] = (base + 0u) << 4u | (pixel.red & 0x07u);
-    dma_tx_buffer_[transfer_size++] = (base + 1u) << 4u | (pixel.green & 0x07u);
-    dma_tx_buffer_[transfer_size++] = (base + 2u) << 4u | (pixel.blue & 0x07u);
+  for (std::size_t i{0u}; i < pixels.size(); i++) {
+    dma_tx_buffer_[i + 1u] = i << 4u | (pixels[i] & 0x07u);
   }
 
-  HAL_UART_Transmit_DMA(huartx_, dma_tx_buffer_.data(), transfer_size);
+  HAL_UART_Transmit_DMA(huartx_, dma_tx_buffer_.data(), dma_tx_buffer_.size());
 }
 
-void Panel::SendWhitebalance(
-    const std::array<std::uint8_t, kWhiteBalanceDataSize>& white_balance) {
+void Panel::SendWhitebalance(const WhiteBalanceData& white_balance) {
   if (status_ < kVcc3v3On) {
     return;
   }
 
   std::copy_n(white_balance.begin(), white_balance.size(),
-              white_balance_.begin() + 1);
+              white_balance_.begin() + 1u);
   HAL_UART_Transmit_DMA(huartx_, white_balance_.data(), white_balance_.size());
 }
