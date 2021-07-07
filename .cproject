@@ -213,9 +213,9 @@
                         						
                         <entry excluding="Src/firmware_updater.cc|Startup/startup_firmware_updater.s|Src/firmware_updater.c|Src/firmware_updater_handler.s|Src/firmware_update.s|Src/firmware_update.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Core"/>
                         						
-                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
-                        						
                         <entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
+                        						
+                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
                         					
                     </sourceEntries>
                     				
@@ -431,9 +431,9 @@
                         						
                         <entry excluding="Src/firmware_updater.cc|Startup/startup_firmware_updater.s|Src/firmware_updater.c|Src/firmware_updater_handler.s|Src/firmware_update.s|Src/firmware_update.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Core"/>
                         						
-                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
-                        						
                         <entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
+                        						
+                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
                         					
                     </sourceEntries>
                     				
@@ -645,11 +645,11 @@
                     					
                     <sourceEntries>
                         						
+                        <entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
+                        						
                         <entry excluding="Src/interrupt.cc|Src/main.c|Src/stm32f0xx_it.c|Startup/startup_stm32f030c8tx.s|Src/main.cc|Src/panel.cc|Src/network.cc|Src/main_cc.cc|Src/window.cpp|Src/network.cpp|Src/main_cpp.cpp|Src/mac_eeprom.c|Src/dhcp_buffer.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Core"/>
                         						
                         <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
-                        						
-                        <entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
                         					
                     </sourceEntries>
                     				
@@ -861,11 +861,11 @@
                     					
                     <sourceEntries>
                         						
+                        <entry excluding="Internet|Application|Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
+                        						
                         <entry excluding="Src/interrupt.cc|Src/main.c|Src/stm32f0xx_it.c|Startup/startup_stm32f030c8tx.s|Src/main.cc|Src/panel.cc|Src/network.cc|Src/main_cc.cc|Src/window.cpp|Src/network.cpp|Src/main_cpp.cpp|Src/mac_eeprom.c|Src/dhcp_buffer.c" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Core"/>
                         						
                         <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
-                        						
-                        <entry excluding="Internet|Application|Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="ioLibrary_Driver"/>
                         					
                     </sourceEntries>
                     				
@@ -1081,9 +1081,9 @@
                         						
                         <entry excluding="Src/firmware_updater.cc|Startup/startup_firmware_updater.s|Src/firmware_updater.c|Src/firmware_updater_handler.s|Src/firmware_update.s|Src/firmware_update.cpp" flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="Core"/>
                         						
-                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
-                        						
                         <entry excluding="Ethernet/W5300|Ethernet/W5200|Ethernet/W5100S|Ethernet/W5100|Application|Internet/TFTP|Internet/SNTP|Internet/SNMP|Internet/MQTT|Internet/httpServer|Internet/FTPServer|Internet/FTPClient|Internet/DNS" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="ioLibrary_Driver"/>
+                        						
+                        <entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
                         					
                     </sourceEntries>
                     				
