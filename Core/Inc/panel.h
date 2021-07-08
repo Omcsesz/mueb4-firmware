@@ -129,6 +129,10 @@ class Panel final {
   /// Send white balance data to panel.
   void SendWhitebalance(const WhiteBalanceData& white_balance);
 
+  void SetActive(bool active);
+
+  std::uint8_t heartbeat{0u};
+
  private:
   Panel(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
         GPIO_TypeDef* const gpio_port_power, const std::uint16_t gpio_pin_power,
@@ -167,7 +171,7 @@ class Panel final {
   static bool swapped_;
 
   /// Stores if we can communicate with the panel.
-  bool active_{true};
+  bool active_{false};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_PANEL_H_

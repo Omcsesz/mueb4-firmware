@@ -50,6 +50,7 @@ Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
       gpio_pin_3v3_(gpio_pin_3v3),
       gpio_pin_tx_(gpio_pin_tx),
       gpio_pin_power_(gpio_pin_power) {
+  HAL_UART_Receive_IT(huartx_, &heartbeat, 1u);
   SetStatus(kDischargeCaps);
 }
 
@@ -157,7 +158,6 @@ void Panel::SetStatus(enum Status status) {
       break;
     case kVcc12vOn:
       HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_SET);
-      Blank();
       break;
     default:
       return;
@@ -189,3 +189,5 @@ void Panel::SendWhitebalance(const WhiteBalanceData& white_balance) {
               white_balance_.begin() + 1u);
   HAL_UART_Transmit_DMA(huartx_, white_balance_.data(), white_balance_.size());
 }
+
+void Panel::SetActive(bool active) { active_ = active; }

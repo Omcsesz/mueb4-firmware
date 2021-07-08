@@ -41,10 +41,7 @@ namespace {
 const std::uint32_t kMainProgramSize =
     reinterpret_cast<std::uint32_t>(_main_program_size) / 4u;
 
-/// Stores the level number where the device is located
-std::uint8_t level_number{0u};
-/// Stores the room number where the device is located
-std::uint8_t room_number{0u};
+std::uint16_t buffer_offset;
 
 /**
  * Stores network information.
@@ -54,9 +51,11 @@ wiz_NetInfo net_info{};
 
 inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
-  level_number = net_info.ip[2];
-  room_number = net_info.ip[3];
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
+
+  std::uint8_t level_number = 18u - net_info.ip[2];
+  std::uint8_t room_number = net_info.ip[3] - 5u;
+  buffer_offset = (level_number * 96u + room_number * 6u) + 2u;
 }
 
 void IpAssign() {
@@ -142,8 +141,8 @@ void Network::Step() {
       HandleCommandProtocol();
     }
 
-    if (getSn_RX_RSR(kAnimationSocket) > 0u && level_number != 0u &&
-        room_number != 0u) {
+    if (getSn_RX_RSR(kAnimationSocket) > 0u && net_info.ip[2] != 0u &&
+        net_info.ip[3] != 0u) {
       HandleAnimationProtocol();
     }
   } else {
@@ -187,16 +186,14 @@ void Network::HandleAnimationProtocol() {
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
-  std::uint32_t base_offset =
-      ((18u - level_number) * 96u + (room_number - 5u) * 6u) + 2u;
-  auto buffer_begin{buffer.begin() + base_offset};
+  auto buffer_begin{buffer.begin() + buffer_offset};
   Panel::PanelColorData colors{};
   auto colors_begin{colors.begin()};
 
   for (auto [i, bytes] = std::tuple(buffer_begin, 0u);; i++, bytes++) {
     if (bytes == 3u || bytes == 9u) {
       // Jump to next row
-      i -= 3u + 48u;
+      i = i - 3u + 48u;
     } else if (bytes == 6u) {
       Panel::GetPanel(Panel::LEFT).SendPixels(colors);
       i -= 48u;
