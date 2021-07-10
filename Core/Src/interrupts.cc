@@ -20,7 +20,6 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     HAL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin);
     DHCP_time_handler();
     Panel::TimeHandler();
-    Panel::StepInternalAnimation();
   }
 }
 

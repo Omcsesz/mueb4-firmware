@@ -17,10 +17,12 @@ extern UART_HandleTypeDef huart2;
  */
 bool Panel::internal_animation_enabled_{false};
 bool Panel::swapped_{false};
+std::array<std::uint16_t, 2u> Panel::adc_{};
 
 void Panel::TimeHandler() {
   Panel::left_panel().tick_1s_++;
   Panel::right_panel().tick_1s_++;
+  Panel::StepInternalAnimation();
 }
 
 void Panel::ToggleInternalAnimation() {
@@ -49,9 +51,7 @@ Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
       huartx_(huartx),
       gpio_pin_3v3_(gpio_pin_3v3),
       gpio_pin_tx_(gpio_pin_tx),
-      gpio_pin_power_(gpio_pin_power) {
-  SetStatus(kDischargeCaps);
-}
+      gpio_pin_power_(gpio_pin_power) {}
 
 void Panel::SwapPanels() { swapped_ = !swapped_; }
 
@@ -115,72 +115,74 @@ void Panel::BlankAll() {
 
 void Panel::Step() {
   switch (status_) {
-    case kDischargeCaps:
-      if (tick_1s_ > 10u) SetStatus(kVcc3v3On);
+    case kPowerOff: {
+      if (tick_1s_ > 10u) {
+        SetStatus(kVcc3v3On);
+      }
       break;
-    case kVcc3v3Off:
-      if (tick_1s_ > 5u) SetStatus(kVcc3v3On);
-      break;
-    case kVcc3v3On:
+    }
+
+    case kVcc3v3On: {
       if (tick_1s_ > 1u) {
         if (active_) {
           SetStatus(kVcc12vOn);
         } else {
-          SetStatus(kVcc3v3Off);
+          SetStatus(kDisabled);
         }
       }
       break;
-    case kVcc12vOff:
+    }
+    case kVcc12vOn: {
       break;
-    case kVcc12vOn:
+    }
+    default:
       break;
   }
 }
 
 void Panel::SetStatus(enum Status status) {
   switch (status) {
-    case kDischargeCaps: {
-      tick_1s_ = 0u;
+    case kDisabled:
+    case kPowerOff: {
+      active_ = false;
+
       HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_SET);
       HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_RESET);
-      break;
-    }
-    case kVcc3v3Off: {
-      tick_1s_ = 0u;
-      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_SET);
 
+      // Turn UART off
       if (huartx_ == &huart1) {
         HAL_UART_DeInit(&huart1);
       } else {
         HAL_UART_DeInit(&huart2);
       }
 
+      tick_1s_ = 0u;
       break;
     }
     case kVcc3v3On: {
-      tick_1s_ = 0u;
       HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_RESET);
 
+      // Turn UART on
       if (huartx_ == &huart1) {
-        if (!uart_initialized_) {
+        if (!mx_uart_initialized_) {
           MX_USART1_UART_Init();
+          mx_uart_initialized_ = true;
         } else if (HAL_UART_Init(&huart1) != HAL_OK) {
           Error_Handler();
         }
       } else if (huartx_ == &huart2) {
-        if (!uart_initialized_) {
+        if (!mx_uart_initialized_) {
           MX_USART2_UART_Init();
+          mx_uart_initialized_ = true;
         } else if (HAL_UART_Init(&huart2) != HAL_OK) {
           Error_Handler();
         }
       }
 
+      tick_1s_ = 0u;
       HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
       break;
     }
-    case kVcc12vOff:
-      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_RESET);
-      break;
     case kVcc12vOn:
       HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_SET);
       break;
@@ -194,7 +196,7 @@ void Panel::SetStatus(enum Status status) {
 void Panel::Blank() { SendPixels(Panel::PanelColorData{}); }
 
 void Panel::SendPixels(const PanelColorData& pixels) {
-  if (status_ < kVcc3v3On) {
+  if (status_ < kVcc12vOn) {
     return;
   }
 
@@ -216,11 +218,10 @@ void Panel::SendWhitebalance(const WhiteBalanceData& white_balance) {
 }
 
 void Panel::Heartbeat() {
+  HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
   if (status_ < kVcc3v3On || (heartbeat_ & 0xF0u) != 0x80u) {
     return;
   }
 
-  heartbeat_ = 0u;
   active_ = true;
-  HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
 }

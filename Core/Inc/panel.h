@@ -18,11 +18,10 @@ class Panel final {
  public:
   /// #Panel status.
   enum Status {
-    kDischargeCaps,  ///< Discharge capacitors
-    kVcc3v3Off,      ///< Turn 3v3 off
-    kVcc12vOff,      ///< Turn 12v off
-    kVcc3v3On,       ///< Turn 3v3 on
-    kVcc12vOn        ///< Turn 12v on
+    kDisabled,  ///< Disabled
+    kPowerOff,  ///< Power off 12v, 3v3, discharge capacitors
+    kVcc3v3On,  ///< Turn 3v3 on
+    kVcc12vOn   ///< Turn 12v on
   };
 
   /**
@@ -101,9 +100,6 @@ class Panel final {
    */
   static Panel& GetPanel(Side side);
 
-  /// Internal animation's loop
-  static void StepInternalAnimation();
-
   static void BlankAll();
 
   /// Panel class' loop
@@ -137,15 +133,20 @@ class Panel final {
         GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
         UART_HandleTypeDef* const huartx);
 
-  /// DMA TX buffer.
-  std::array<std::uint8_t, kPanelColorDataSize + 1u> dma_tx_buffer_{
-      kInitCommand};
+  /// Internal animation's loop
+  static void StepInternalAnimation();
 
   std::array<std::uint8_t, kWhiteBalanceDataSize + 1u> white_balance_{
       kConfigCommand};
 
+  /// DMA TX buffer.
+  std::array<std::uint8_t, kPanelColorDataSize + 1u> dma_tx_buffer_{
+      kInitCommand};
+
   /// Stores state of panel @see #Status.
-  Status status_{kDischargeCaps};
+  Status status_{kPowerOff};
+
+  static std::array<std::uint16_t, 2u> adc_;
 
   ///@{
   /// Defined in main.h
@@ -173,7 +174,7 @@ class Panel final {
   /// Stores if we can communicate with the panel.
   bool active_{false};
 
-  bool uart_initialized_{false};
+  bool mx_uart_initialized_{false};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_PANEL_H_

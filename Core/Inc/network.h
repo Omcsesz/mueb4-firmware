@@ -18,10 +18,10 @@ class Network final {
  public:
   /// Byte code for network commands.
   enum Command {
-    kTurn12vOffLeft,              ///< Turn left panel's 12v off
-    kTurn12vOffRight,             ///< Turn right panel's 12v off
-    kResetLeftPanel,              ///< Reset left panel state
-    kResetRightPanel,             ///< Reset right panel state
+    kDisableLeftPanel,            ///< Disable left panel
+    kDisableRightPanel,           ///< Disable right panel
+    kResetLeftPanel,              ///< Reset left panel
+    kResetRightPanel,             ///< Reset right panel
     kReboot,                      ///< Reboot device
     kGetStatus,                   ///< Get device's status
     kGetMac,                      ///< Get device's MAC address

@@ -243,6 +243,18 @@ void Network::HandleCommandProtocol() {
   }
 
   switch (buffer[3]) {
+    case Command::kDisableLeftPanel:
+      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kDisabled);
+      break;
+    case Command::kDisableRightPanel:
+      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kDisabled);
+      break;
+    case kResetLeftPanel:
+      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kPowerOff);
+      break;
+    case kResetRightPanel:
+      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kPowerOff);
+      break;
     case Command::kUseExternalAnim:
       Panel::SetInternalAnimation(false);
       break;
@@ -251,18 +263,6 @@ void Network::HandleCommandProtocol() {
       break;
     case Command::kBlank:
       Panel::BlankAll();
-      break;
-    case Command::kTurn12vOffLeft:
-      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kVcc12vOff);
-      break;
-    case Command::kTurn12vOffRight:
-      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kVcc12vOff);
-      break;
-    case Command::kResetLeftPanel:
-      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kDischargeCaps);
-      break;
-    case Command::kResetRightPanel:
-      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kDischargeCaps);
       break;
     case Command::kReboot:
       HAL_NVIC_SystemReset();

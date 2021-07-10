@@ -737,7 +737,6 @@ Debug/
 Release/
 FirmwareUpdater/
 FirmwareUpdaterDebug/
-Release + FirmwareUpdaterDebug/
 Drivers/
 Doc/
 .mxproject
