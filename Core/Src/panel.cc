@@ -10,6 +10,7 @@
 
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern ADC_HandleTypeDef hadc;
 
 /**
  * Used for window#step_anim
@@ -116,7 +117,15 @@ void Panel::BlankAll() {
 void Panel::Step() {
   switch (status_) {
     case kPowerOff: {
-      if (tick_1s_ > 10u) {
+      HAL_ADC_Start(&hadc);
+      HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+      adc_[0] = HAL_ADC_GetValue(&hadc);
+      HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+      adc_[1] = HAL_ADC_GetValue(&hadc);
+      HAL_ADC_Stop(&hadc);
+
+      if ((huartx_ == &huart2 && adc_[0] < 100u) ||
+          (huartx_ == &huart1 && adc_[1] < 100u)) {
         SetStatus(kVcc3v3On);
       }
       break;
@@ -132,9 +141,8 @@ void Panel::Step() {
       }
       break;
     }
-    case kVcc12vOn: {
+    case kVcc12vOn:
       break;
-    }
     default:
       break;
   }
