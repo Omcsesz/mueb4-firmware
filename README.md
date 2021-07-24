@@ -1,4 +1,4 @@
-# matrix4-fw
+# mueb4-firmware
 
 Firmware for 4th generation MUEB.
 
