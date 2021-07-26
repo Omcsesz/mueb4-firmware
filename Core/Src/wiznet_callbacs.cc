@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "main.h"
+#include "spi.h"
 
 extern SPI_HandleTypeDef hspi1;
 

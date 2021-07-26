@@ -13,13 +13,16 @@ _firmware_updater_start = ORIGIN(FLASH);
 /* Firmware updater flash area pages */
 _firmware_updater_pages = (ORIGIN(FLASH) + 64K - _firmware_updater_start) / 1K;
 
+/* SPI_HandleTypeDef */
+hspi1 = 0x20000000;
+
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
 
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 8K
+  RAM    (xrw)    : ORIGIN = 0x20000080,   LENGTH = 8K
   FLASH    (rx)    : ORIGIN = 0x800D800,   LENGTH = 10K
 }
 

@@ -8,6 +8,9 @@
 
 #include <algorithm>
 
+#include "adc.h"
+#include "usart.h"
+
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
 extern ADC_HandleTypeDef hadc;

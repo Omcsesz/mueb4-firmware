@@ -95,8 +95,6 @@ void Error_Handler(void);
 #define PANEL_3V3_RIGHT_GPIO_Port GPIOB
 #define PANEL_3V3_LEFT_Pin GPIO_PIN_9
 #define PANEL_3V3_LEFT_GPIO_Port GPIOB
-void   MX_USART1_UART_Init(void);
-void   MX_USART2_UART_Init(void);
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

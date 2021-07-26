@@ -17,6 +17,8 @@
 #include <iterator>
 #include <utility>
 
+#include "crc.h"
+#include "i2c.h"
 #include "main.h"
 #include "panel.h"
 #include "version.h"
