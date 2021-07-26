@@ -740,3 +740,4 @@ FirmwareUpdaterDebug/
 Drivers/
 Doc/
 .mxproject
+CMakeLists.txt
