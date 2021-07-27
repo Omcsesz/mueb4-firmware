@@ -8,40 +8,31 @@
 
 #include <dhcp.h>
 #include <socket.h>
-#include <wizchip_conf.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <iterator>
-#include <utility>
 
 #include "crc.h"
 #include "i2c.h"
-#include "main.h"
 #include "panel.h"
 #include "version.h"
 #include "wiznet_callbacs.h"
 
 ///@{
-/// Defined in main.c.
-extern CRC_HandleTypeDef hcrc;
-extern I2C_HandleTypeDef hi2c2;
-///@}
-
-///@{
 /// Defined in linker script.
-extern std::uint32_t _firmware_updater_start[];
-extern std::uint32_t _firmware_updater_pages[];
-extern std::uint32_t _main_program_size[];
-extern std::uint32_t _flash_end[];
+extern std::uint32_t firmware_updater_start[];
+extern std::uint32_t firmware_updater_pages[];
+extern std::uint32_t main_program_size[];
+extern std::uint32_t flash_end[];
 ///@}
 
 namespace {
 /// Stores main program flash size in words.
+// NOLINTNEXTLINE
 const std::uint32_t kMainProgramSize =
-    reinterpret_cast<std::uint32_t>(_main_program_size) / 4u;
+    reinterpret_cast<std::uint32_t>(main_program_size) / 4u;
 
 std::uint16_t buffer_offset;
 
@@ -55,9 +46,10 @@ inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 
-  std::uint8_t level_number = 18u - net_info.ip[2];
-  std::uint8_t room_number = net_info.ip[3] - 5u;
-  buffer_offset = (level_number * 96u + room_number * 6u) + 2u;
+  auto level_number = static_cast<uint8_t>(18u - net_info.ip[2]);
+  auto room_number = static_cast<uint8_t>(net_info.ip[3] - 5u);
+  buffer_offset =
+      static_cast<uint16_t>((level_number * 96u + room_number * 6u) + 2u);
 }
 
 void IpAssign() {
@@ -161,18 +153,17 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   std::array<std::uint8_t, N> buffer{};
   std::array<std::uint8_t, 4u> server_address{};
   std::uint16_t server_port;
-  std::int32_t size{recvfrom(socket_number, buffer.data(), buffer.size(),
+  std::int32_t size{recvfrom(socket_number, buffer.data(),
+                             static_cast<uint16_t>(buffer.size()),
                              server_address.data(), &server_port)};
 
   if (size < 0 || (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
                                server_address.begin()) &&
                    server_address[2] != 0u)) {
-    return std::make_tuple(-1, std::move(buffer), std::move(server_address),
-                           std::move(server_port));
+    return std::make_tuple(-1, std::move(buffer), server_address, server_port);
   }
 
-  return std::make_tuple(std::move(size), std::move(buffer),
-                         std::move(server_address), std::move(server_port));
+  return std::make_tuple(size, std::move(buffer), server_address, server_port);
 }
 
 void Network::HandleAnimationProtocol() {
@@ -270,33 +261,33 @@ void Network::HandleCommandProtocol() {
       HAL_NVIC_SystemReset();
       break;
     case Command::kGetStatus: {
-      std::array<char, 256> status_string;
+      std::array<char, 256> status_string{};
       sendto(kCommandSocket,
              reinterpret_cast<std::uint8_t *>(status_string.data()),
-             std::snprintf(status_string.data(), status_string.size(),
-                           // clang-format off
+          static_cast<std::uint16_t>(std::snprintf(
+              status_string.data(), status_string.size(),
+              // clang-format off
               "MUEB FW version: %s\n"
               "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
               "Internal animation: %s\n"
               "Command socket buffer: %#x\n"
               "Broadcast socket buffer: %#x\n"
               "SEM forever",
-                           // clang-format on
-                           mueb_version, net_info.mac[0], net_info.mac[1],
-                           net_info.mac[2], net_info.mac[3], net_info.mac[4],
-                           net_info.mac[5],
-                           Panel::internal_animation_enabled() ? "on" : "off",
-                           getSn_RX_RSR(kCommandSocket),
-                           getSn_RX_RSR(kAnimationSocket)),
+              // clang-format on
+              mueb_version, net_info.mac[0], net_info.mac[1], net_info.mac[2],
+              net_info.mac[3], net_info.mac[4], net_info.mac[5],
+              Panel::internal_animation_enabled() ? "on" : "off",
+              getSn_RX_RSR(kCommandSocket), getSn_RX_RSR(kAnimationSocket))),
              server_address.data(), server_port);
       break;
     }
     case Command::kGetMac: {
       std::array<char, 18u> mac{};
       sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
-             std::snprintf(mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x",
-                           net_info.mac[0], net_info.mac[1], net_info.mac[2],
-                           net_info.mac[3], net_info.mac[4], net_info.mac[5]),
+             static_cast<std::uint16_t>(std::snprintf(
+                 mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", net_info.mac[0],
+                 net_info.mac[1], net_info.mac[2], net_info.mac[3],
+                 net_info.mac[4], net_info.mac[5])),
              server_address.data(), server_port);
       break;
     }
@@ -309,7 +300,7 @@ void Network::HandleCommandProtocol() {
       break;
     case Command::kStartFirmwareUpdate: {
       // Generate jump instruction, no going back
-      void *f{_firmware_updater_start};
+      void *f{firmware_updater_start};
       goto *f;
       break;
     }
@@ -327,10 +318,10 @@ void Network::HandleCommandProtocol() {
       break;
     }
     case Command::kGetFirmwareUpdaterChecksum: {
-      std::uint16_t const firmware_updater_size{
-          (buffer[11] << 8u | buffer[12]) / 4u};
+      const std::uint16_t firmware_updater_size{
+          static_cast<const uint16_t>((buffer[11] << 8u | buffer[12]) / 4u)};
       auto crc{HAL_CRC_Calculate(
-          &hcrc, reinterpret_cast<std::uint32_t *>(_firmware_updater_start),
+          &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
           firmware_updater_size)};
 
       /* __REV for endianness fix
@@ -345,12 +336,12 @@ void Network::HandleCommandProtocol() {
     case Command::kSwapPanels:
       Panel::SwapPanels();
       break;
-    case Command::kSetWhitebalance: {
+    case Command::kSetWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
-      Panel::GetPanel(Panel::LEFT).SendWhitebalance(white_balance);
-      Panel::GetPanel(Panel::RIGHT).SendWhitebalance(white_balance);
+      Panel::GetPanel(Panel::LEFT).SendWhiteBalance(white_balance);
+      Panel::GetPanel(Panel::RIGHT).SendWhiteBalance(white_balance);
       break;
     }
     case Command::kFlashFirmwareUpdater: {
@@ -388,8 +379,8 @@ void Network::HandleCommandProtocol() {
       FLASH_EraseInitTypeDef pEraseInit = {
           .TypeErase = FLASH_TYPEERASE_PAGES,
           .PageAddress =
-              reinterpret_cast<std::uint32_t>(_firmware_updater_start),
-          .NbPages = reinterpret_cast<std::uint32_t>(_firmware_updater_pages)};
+              reinterpret_cast<std::uint32_t>(firmware_updater_start),
+          .NbPages = reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
       std::uint32_t PageError;
       if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
         // If this fails we can't do much
@@ -401,17 +392,17 @@ void Network::HandleCommandProtocol() {
       // Write flash page by page
       std::int32_t recv_size{0u};
       std::uint32_t base_addr{
-          reinterpret_cast<std::uint32_t>(_firmware_updater_start)};
+          reinterpret_cast<std::uint32_t>(firmware_updater_start)};
       do {
-        std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
-        std::uint32_t *buffer_p{
-            reinterpret_cast<std::uint32_t *>(buffer.data())};
+        std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_buffer{};
+        std::uint32_t *flash_buffer_p{
+            reinterpret_cast<std::uint32_t *>(flash_buffer.data())};
         recv_size =
-            recv(kFirmwareUpdaterSocket, buffer.data(), FLASH_PAGE_SIZE);
+            recv(kFirmwareUpdaterSocket, flash_buffer.data(), FLASH_PAGE_SIZE);
 
         // Overwrite protection
         if (base_addr + recv_size >=
-            reinterpret_cast<std::uint32_t>(_flash_end)) {
+            reinterpret_cast<std::uint32_t>(flash_end)) {
           disconnect(kFirmwareUpdaterSocket);
           close(kFirmwareUpdaterSocket);
           break;
@@ -420,7 +411,7 @@ void Network::HandleCommandProtocol() {
         if (recv_size > 0) {
           for (std::size_t i{0u}; i < recv_size / 4u; i++) {
             if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4u,
-                                  buffer_p[i]) != HAL_OK) {
+                                  flash_buffer_p[i]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterSocket);
               close(kFirmwareUpdaterSocket);
@@ -431,9 +422,10 @@ void Network::HandleCommandProtocol() {
           // Handle odd recv_size, write last byte
           // This should not be called because of alignment
           if (recv_size % 2u != 0u) {
-            std::int32_t last_byte = recv_size - 1u;
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + last_byte,
-                                  buffer[last_byte]) != HAL_OK) {
+            std::int32_t last_byte = recv_size - 1;
+            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
+                                  base_addr + last_byte,
+                                  flash_buffer[last_byte]) != HAL_OK) {
               // If this fails we can't do much
               disconnect(kFirmwareUpdaterSocket);
               close(kFirmwareUpdaterSocket);

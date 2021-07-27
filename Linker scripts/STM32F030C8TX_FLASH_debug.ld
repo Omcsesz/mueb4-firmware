@@ -5,13 +5,13 @@ ENTRY(Reset_Handler)
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
 /* End of flash */
-_flash_end = ORIGIN(FLASH) + 64K;
+flash_end = ORIGIN(FLASH) + 64K;
 
 /* Firmware updater start */
-_firmware_updater_start = ORIGIN(FLASH) + LENGTH(FLASH);
+firmware_updater_start = ORIGIN(FLASH) + LENGTH(FLASH);
 
 /* Firmware updater flash area pages */
-_firmware_updater_pages = (_flash_end - _firmware_updater_start) / 1K;
+firmware_updater_pages = (flash_end - firmware_updater_start) / 1K;
 
 _Min_Heap_Size = 0x200 ;	/* required amount of heap  */
 _Min_Stack_Size = 0x400 ;	/* required amount of stack */
@@ -142,7 +142,7 @@ SECTIONS
   
   /* Calculate main program flash size */
   ._main_program : {
-  	_main_program_size = . - 0x8000000;
+  	main_program_size = . - 0x8000000;
   } >FLASH
 
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */

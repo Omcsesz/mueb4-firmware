@@ -6,7 +6,6 @@
  */
 
 #include <socket.h>
-#include <wizchip_conf.h>
 
 #include <array>
 #include <cstddef>
@@ -16,15 +15,15 @@
 #include "network.h"
 #include "wiznet_callbacs.h"
 
-extern std::uint32_t _main_program_pages[];
-extern std::uint32_t _firmware_updater_start[];
+extern std::uint32_t main_program_pages[];
+extern std::uint32_t firmware_updater_start[];
 
 /**
  * Manages firmware update process.
  * @Note At this point the device should have an IP address, and all peripherals
  * should be initialized.
  */
-extern "C" void FirmwareUpdater() {
+extern "C" [[maybe_unused]] void FirmwareUpdater() {
   // Prevent hard fault, no Interrupt vector table after flash erase.
   __disable_irq();
 
@@ -68,7 +67,7 @@ restart_update:
   FLASH_EraseInitTypeDef pEraseInit = {
       .TypeErase = FLASH_TYPEERASE_PAGES,
       .PageAddress = FLASH_BASE,
-      .NbPages = reinterpret_cast<std::uint32_t>(_main_program_pages)};
+      .NbPages = reinterpret_cast<std::uint32_t>(main_program_pages)};
   std::uint32_t PageError;
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     // If this fails we can't do much
@@ -77,7 +76,7 @@ restart_update:
   }
 
   // Write flash page by page
-  std::int32_t recv_size{0u};
+  std::int32_t recv_size;
   std::uint32_t base_addr{FLASH_BASE};
   do {
     std::array<std::uint8_t, FLASH_PAGE_SIZE> buffer{};
@@ -87,14 +86,15 @@ restart_update:
 
     // Overwrite protection
     if (base_addr + recv_size >=
-        reinterpret_cast<std::uint32_t>(_firmware_updater_start)) {
+        reinterpret_cast<std::uint32_t>(firmware_updater_start)) {
       // At this point no return to main program, need to restart update
       disconnect(Network::kFirmwareUpdaterSocket);
+      close(Network::kFirmwareUpdaterSocket);
       goto restart_update;
     }
 
     if (recv_size > 0) {
-      for (std::size_t i = 0u; i < recv_size / 4u; i++) {
+      for (std::size_t i{0u}; i < recv_size / 4u; i++) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4u,
                               buffer_p[i]) != HAL_OK) {
           // If this fails we can't do much
@@ -106,7 +106,7 @@ restart_update:
       // Handle odd recv_size, write last byte
       // This should not be called because of alignment
       if (recv_size % 2u != 0u) {
-        std::int32_t last_byte = recv_size - 1u;
+        std::uint32_t last_byte = recv_size - 1u;
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, base_addr + last_byte,
                               buffer[last_byte]) != HAL_OK) {
           // If this fails we can't do much

@@ -5,13 +5,13 @@ ENTRY(Firmware_Updater_Handler)
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
 /* Main program flash area pages */
-_main_program_pages = (64K - LENGTH(FLASH)) / 1K;
+main_program_pages = (64K - LENGTH(FLASH)) / 1K;
 
 /* Firmware updater start */
-_firmware_updater_start = ORIGIN(FLASH);
+firmware_updater_start = ORIGIN(FLASH);
 
 /* Firmware updater flash area pages */
-_firmware_updater_pages = (ORIGIN(FLASH) + 64K - _firmware_updater_start) / 1K;
+firmware_updater_pages = (ORIGIN(FLASH) + 64K - firmware_updater_start) / 1K;
 
 /* SPI_HandleTypeDef */
 hspi1 = 0x20000000;

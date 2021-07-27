@@ -34,7 +34,7 @@ class Network final {
     kGetFirmwareChecksum,         ///< Return main program checksum
     kGetFirmwareUpdaterChecksum,  ///< Return firmware updater checksum
     kSwapPanels,                  ///< Swap left and right panels
-    kSetWhitebalance,             ///< Set white balance
+    kSetWhiteBalance,             ///< Set white balance
     kFlashFirmwareUpdater         ///< Flash firmware updater
   };
 
@@ -102,7 +102,7 @@ class Network final {
   void HandleCommandProtocol();
 
   /// Flushes socket buffers.
-  void FlushSocketBuffers();
+  static void FlushSocketBuffers();
 
   /**
    * DHCP RX buffer.

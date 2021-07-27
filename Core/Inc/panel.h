@@ -123,15 +123,14 @@ class Panel final {
   void SendPixels(const PanelColorData& pixels);
 
   /// Send white balance data to panel.
-  void SendWhitebalance(const WhiteBalanceData& white_balance);
+  void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
   void Heartbeat();
 
  private:
-  Panel(GPIO_TypeDef* const gpio_port_3v3, const std::uint16_t gpio_pin_3v3,
-        GPIO_TypeDef* const gpio_port_power, const std::uint16_t gpio_pin_power,
-        GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
-        UART_HandleTypeDef* const huartx);
+  Panel(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
+        GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
+        UART_HandleTypeDef* huartx);
 
   /// Internal animation's loop
   static void StepInternalAnimation();
@@ -146,15 +145,14 @@ class Panel final {
   /// Stores state of panel @see #Status.
   Status status_{kPowerOff};
 
-  static std::array<std::uint16_t, 2u> adc_;
+  static std::array<std::uint32_t, 2u> adc_;
 
   ///@{
   /// Defined in main.h
   GPIO_TypeDef* const gpio_port_3v3_;
-  GPIO_TypeDef* const gpio_port_tx_;
   GPIO_TypeDef* const gpio_port_power_;
   UART_HandleTypeDef* const huartx_;
-  const std::uint16_t gpio_pin_3v3_, gpio_pin_tx_, gpio_pin_power_;
+  const std::uint16_t gpio_pin_3v3_, gpio_pin_power_;
   ///@}
 
   /**

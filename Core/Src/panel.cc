@@ -11,17 +11,13 @@
 #include "adc.h"
 #include "usart.h"
 
-extern UART_HandleTypeDef huart1;
-extern UART_HandleTypeDef huart2;
-extern ADC_HandleTypeDef hadc;
-
 /**
  * Used for window#step_anim
  * @see ::TIM17_IRQHandler
  */
 bool Panel::internal_animation_enabled_{false};
 bool Panel::swapped_{false};
-std::array<std::uint16_t, 2u> Panel::adc_{};
+std::array<std::uint32_t, 2u> Panel::adc_{};
 
 void Panel::TimeHandler() {
   Panel::left_panel().tick_1s_++;
@@ -47,14 +43,11 @@ Panel::Panel(GPIO_TypeDef* const gpio_port_3v3,
              const std::uint16_t gpio_pin_3v3,
              GPIO_TypeDef* const gpio_port_power,
              const std::uint16_t gpio_pin_power,
-             GPIO_TypeDef* const gpio_port_tx, const std::uint16_t gpio_pin_tx,
              UART_HandleTypeDef* const huartx)
     : gpio_port_3v3_(gpio_port_3v3),
-      gpio_port_tx_(gpio_port_tx),
       gpio_port_power_(gpio_port_power),
       huartx_(huartx),
       gpio_pin_3v3_(gpio_pin_3v3),
-      gpio_pin_tx_(gpio_pin_tx),
       gpio_pin_power_(gpio_pin_power) {}
 
 void Panel::SwapPanels() { swapped_ = !swapped_; }
@@ -62,7 +55,7 @@ void Panel::SwapPanels() { swapped_ = !swapped_; }
 Panel& Panel::left_panel() {
   static Panel instance(PANEL_3V3_LEFT_GPIO_Port, PANEL_3V3_LEFT_Pin,
                         PANEL_POWER_LEFT_GPIO_Port, PANEL_POWER_LEFT_Pin,
-                        PANEL_TX_LEFT_GPIO_Port, PANEL_TX_LEFT_Pin, &huart2);
+                        &huart2);
 
   return instance;
 }
@@ -70,7 +63,7 @@ Panel& Panel::left_panel() {
 Panel& Panel::right_panel() {
   static Panel instance(PANEL_3V3_RIGHT_GPIO_Port, PANEL_3V3_RIGHT_Pin,
                         PANEL_POWER_RIGHT_GPIO_Port, PANEL_POWER_RIGHT_Pin,
-                        PANEL_TX_RIGHT_GPIO_Port, PANEL_TX_RIGHT_Pin, &huart1);
+                        &huart1);
 
   return instance;
 }
@@ -95,18 +88,33 @@ void Panel::StepInternalAnimation() {
 
   Panel::PanelColorData colors{};
   for (auto i{colors.begin()}; i != colors.end(); i++) {
-    *i = (phase == 0u) ? color : 0u;    // red
-    *++i = (phase == 1u) ? color : 0u;  // green
-    *++i = (phase == 2u) ? color : 0u;  // blue
+    // red
+    if (phase == 0u) {
+      *i = color;
+    }
+
+    // green
+    i++;
+    if (phase == 1u) {
+      *i = color;
+    }
+
+    // blue
+    i++;
+    if (phase == 2u) {
+      *i = color;
+    }
   }
 
   Panel::right_panel().SendPixels(colors);
   Panel::left_panel().SendPixels(colors);
 
-  if (++color == 8u) {
+  color++;
+  if (color == 8u) {
     color = 0u;
 
-    if (++phase == 3u) {
+    phase++;
+    if (phase == 3u) {
       phase = 0u;
     }
   }
@@ -144,8 +152,6 @@ void Panel::Step() {
       }
       break;
     }
-    case kVcc12vOn:
-      break;
     default:
       break;
   }
@@ -211,14 +217,16 @@ void Panel::SendPixels(const PanelColorData& pixels) {
     return;
   }
 
-  for (std::size_t i{0u}; i < pixels.size(); i++) {
-    dma_tx_buffer_[i + 1u] = i << 4u | (pixels[i] & 0x07u);
+  // NOLINTNEXTLINE
+  for (std::uint8_t i{0u}; i < pixels.size(); i++) {
+    dma_tx_buffer_[i + 1u] =
+        static_cast<std::uint8_t>(i << 4u | (pixels[i] & 0x07u));
   }
 
   HAL_UART_Transmit_DMA(huartx_, dma_tx_buffer_.data(), dma_tx_buffer_.size());
 }
 
-void Panel::SendWhitebalance(const WhiteBalanceData& white_balance) {
+void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
   if (status_ < kVcc3v3On) {
     return;
   }

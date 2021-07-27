@@ -1,12 +1,7 @@
-#include <socket.h>
-#include <wizchip_conf.h>
-
 #include <cstdint>
 
 #include "main.h"
 #include "spi.h"
-
-extern SPI_HandleTypeDef hspi1;
 
 void CrisEn() { __disable_irq(); }
 
