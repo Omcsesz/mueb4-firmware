@@ -19,6 +19,7 @@
 #include "panel.h"
 #include "version.h"
 #include "wiznet_callbacs.h"
+#include "tim.h"
 
 ///@{
 /// Defined in linker script.
@@ -177,6 +178,7 @@ void Network::HandleAnimationProtocol() {
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
+  HAL_TIM_OnePulse_Start_IT(&htim16, TIM_CHANNEL_1);
   Panel::SetInternalAnimation(false);
 
   auto buffer_begin{buffer.begin() + buffer_offset};
@@ -201,13 +203,9 @@ void Network::HandleAnimationProtocol() {
     *colors_begin = *i & 0x0Fu;
     colors_begin++;
   }
-
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
 void Network::HandleCommandProtocol() {
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
-
   auto [size, buffer, server_address,
         server_port]{CheckIpAddress<32u>(kCommandSocket)};
   // Handle too small and incorrect packages
@@ -215,8 +213,7 @@ void Network::HandleCommandProtocol() {
     return;
   }
 
-  /*
-   * When the 5th byte is set to 1 it means we're sending a broadcast command to
+  /* When the 5th byte is set to 1 it means we're sending a broadcast command to
    * only one device
    * Can be used when the device doesn't have an IP address
    */
@@ -235,6 +232,7 @@ void Network::HandleCommandProtocol() {
           server_address[3] = 0xFFu;
   }
 
+  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   switch (buffer[3]) {
     case Command::kDisableLeftPanel:
       Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kDisabled);
