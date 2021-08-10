@@ -86,7 +86,7 @@ void Panel::StepInternalAnimation() {
   static std::uint8_t color{0u};
   static std::uint8_t phase{0u};
 
-  Panel::PanelColorData colors{};
+  Panel::ColorData colors{};
   for (auto i{colors.begin()}; i != colors.end(); i++) {
     // red
     if (phase == 0u) {
@@ -210,9 +210,9 @@ void Panel::SetStatus(enum Status status) {
   status_ = status;
 }
 
-void Panel::Blank() { SendPixels(Panel::PanelColorData{}); }
+void Panel::Blank() { SendPixels(Panel::ColorData{}); }
 
-void Panel::SendPixels(const PanelColorData& pixels) {
+void Panel::SendPixels(const ColorData& pixels) {
   if (status_ < kVcc12vOn) {
     return;
   }

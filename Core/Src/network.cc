@@ -12,14 +12,15 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <iterator>
 
 #include "crc.h"
 #include "i2c.h"
 #include "panel.h"
+#include "tim.h"
 #include "version.h"
 #include "wiznet_callbacs.h"
-#include "tim.h"
 
 ///@{
 /// Defined in linker script.
@@ -35,7 +36,7 @@ namespace {
 const std::uint32_t kMainProgramSize =
     reinterpret_cast<std::uint32_t>(main_program_size) / 4u;
 
-std::uint16_t buffer_offset;
+std::uint16_t animation_buffer_offset;
 
 /**
  * Stores network information.
@@ -47,10 +48,10 @@ inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 
-  auto level_number = static_cast<uint8_t>(18u - net_info.ip[2]);
-  auto room_number = static_cast<uint8_t>(net_info.ip[3] - 5u);
-  buffer_offset =
-      static_cast<uint16_t>((level_number * 96u + room_number * 6u) + 2u);
+  auto level_number = static_cast<std::uint8_t>(18u - net_info.ip[2]);
+  auto room_number = static_cast<std::uint8_t>(net_info.ip[3] - 5u);
+  animation_buffer_offset =
+      static_cast<std::uint16_t>((level_number * 96u + room_number * 6u) + 2u);
 }
 
 void IpAssign() {
@@ -67,7 +68,6 @@ void IpConflict() {
   default_ip_conflict();
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
-
 }  // namespace
 
 Network::Network() {
@@ -104,7 +104,7 @@ Network::Network() {
   wiz_PhyConf_t phyconf{PHY_CONFBY_SW, PHY_MODE_AUTONEGO};
   wizphy_setphyconf(&phyconf);
 
-  // DHCP 1s timer located in interrupt.cc
+  // DHCP 1s timer located in interrupts.cc
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
@@ -155,7 +155,7 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   std::array<std::uint8_t, 4u> server_address{};
   std::uint16_t server_port;
   std::int32_t size{recvfrom(socket_number, buffer.data(),
-                             static_cast<uint16_t>(buffer.size()),
+                             static_cast<std::uint16_t>(buffer.size()),
                              server_address.data(), &server_port)};
 
   if (size < 0 || (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
@@ -169,7 +169,7 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
 
 void Network::HandleAnimationProtocol() {
   auto [size, buffer, server_address,
-        server_port]{CheckIpAddress<1500u>(kAnimationSocket)};
+        server_port]{CheckIpAddress<kMtu>(kAnimationSocket)};
   // Handle too small and incorrect packages
   if (buffer[0] != kAnimationProtocolVersion ||
       (buffer[0] == kAnimationProtocolVersion &&
@@ -181,8 +181,8 @@ void Network::HandleAnimationProtocol() {
   HAL_TIM_OnePulse_Start_IT(&htim16, TIM_CHANNEL_1);
   Panel::SetInternalAnimation(false);
 
-  auto buffer_begin{buffer.begin() + buffer_offset};
-  Panel::PanelColorData colors{};
+  auto buffer_begin{buffer.begin() + animation_buffer_offset};
+  Panel::ColorData colors{};
   auto colors_begin{colors.begin()};
 
   for (auto [i, bytes] = std::tuple(buffer_begin, 0u);; i++, bytes++) {
@@ -190,14 +190,17 @@ void Network::HandleAnimationProtocol() {
       // Jump to next row
       i = i - 3u + 48u;
     } else if (bytes == 6u) {
+      // Send left panel data
       Panel::GetPanel(Panel::LEFT).SendPixels(colors);
       i -= 48u;
       colors_begin = colors.begin();
     } else if (bytes == 12u) {
+      // Send right panel data
       Panel::GetPanel(Panel::RIGHT).SendPixels(colors);
       break;
     }
 
+    // Uncompress 2 color data from 1 byte into 2 bytes
     *colors_begin = (*i & 0xF0u) >> 4u;
     colors_begin++;
     *colors_begin = *i & 0x0Fu;
@@ -207,7 +210,7 @@ void Network::HandleAnimationProtocol() {
 
 void Network::HandleCommandProtocol() {
   auto [size, buffer, server_address,
-        server_port]{CheckIpAddress<32u>(kCommandSocket)};
+        server_port]{CheckIpAddress<kCommandProtocolMaxSize>(kCommandSocket)};
   // Handle too small and incorrect packages
   if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4) {
     return;
@@ -218,26 +221,26 @@ void Network::HandleCommandProtocol() {
    * Can be used when the device doesn't have an IP address
    */
   if (buffer[4] == 1u) {
-    if (net_info.mac[0] != buffer[5] || net_info.mac[1] != buffer[6] ||
-        net_info.mac[2] != buffer[7] || net_info.mac[3] != buffer[8] ||
-        net_info.mac[4] != buffer[9] || net_info.mac[5] != buffer[10]) {
-      // return when the MAC address doesn't match
+    // Return when the MAC address doesn't match
+    if (!std::equal(std::begin(net_info.mac), std::end(net_info.mac),
+                    buffer.begin() + 5u)) {
       return;
     }
 
-    // If the device's IP is 0.0.0.0 use broadcast target address
-    if (!net_info.ip[0] && !net_info.ip[1] && !net_info.ip[2] &&
-        !net_info.ip[3])
-      server_address[0] = server_address[1] = server_address[2] =
-          server_address[3] = 0xFFu;
+    // If the device's IP address is 0.0.0.0 use broadcast target address
+    if (std::all_of(std::begin(net_info.ip), std::end(net_info.ip),
+                    [](const std::uint8_t &i) { return i == 0u; })) {
+      server_address.fill(0xFFu);
+    }
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   switch (buffer[3]) {
-    case Command::kDisableLeftPanel:
+      // Mutable commands
+    case kDisableLeftPanel:
       Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kDisabled);
       break;
-    case Command::kDisableRightPanel:
+    case kDisableRightPanel:
       Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kDisabled);
       break;
     case kResetLeftPanel:
@@ -246,95 +249,7 @@ void Network::HandleCommandProtocol() {
     case kResetRightPanel:
       Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kPowerOff);
       break;
-    case Command::kUseExternalAnim:
-      Panel::SetInternalAnimation(false);
-      break;
-    case Command::kUseInternalAnim:
-      Panel::SetInternalAnimation(true);
-      break;
-    case Command::kBlank:
-      Panel::BlankAll();
-      break;
-    case Command::kReboot:
-      HAL_NVIC_SystemReset();
-      break;
-    case Command::kGetStatus: {
-      std::array<char, 256> status_string{};
-      sendto(kCommandSocket,
-             reinterpret_cast<std::uint8_t *>(status_string.data()),
-          static_cast<std::uint16_t>(std::snprintf(
-              status_string.data(), status_string.size(),
-              // clang-format off
-              "MUEB FW version: %s\n"
-              "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-              "Internal animation: %s\n"
-              "Command socket buffer: %#x\n"
-              "Broadcast socket buffer: %#x\n"
-              "SEM forever",
-              // clang-format on
-              mueb_version, net_info.mac[0], net_info.mac[1], net_info.mac[2],
-              net_info.mac[3], net_info.mac[4], net_info.mac[5],
-              Panel::internal_animation_enabled() ? "on" : "off",
-              getSn_RX_RSR(kCommandSocket), getSn_RX_RSR(kAnimationSocket))),
-             server_address.data(), server_port);
-      break;
-    }
-    case Command::kGetMac: {
-      std::array<char, 18u> mac{};
-      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
-             static_cast<std::uint16_t>(std::snprintf(
-                 mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", net_info.mac[0],
-                 net_info.mac[1], net_info.mac[2], net_info.mac[3],
-                 net_info.mac[4], net_info.mac[5])),
-             server_address.data(), server_port);
-      break;
-    }
-    case Command::kFlushSocketBuffers:
-      FlushSocketBuffers();
-      break;
-    case Command::kPing:
-      sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
-             server_port);
-      break;
-    case Command::kStartFirmwareUpdate: {
-      // Generate jump instruction, no going back
-      void *f{firmware_updater_start};
-      goto *f;
-      break;
-    }
-    case Command::kGetFirmwareChecksum: {
-      auto crc{HAL_CRC_Calculate(&hcrc,
-                                 reinterpret_cast<std::uint32_t *>(FLASH_BASE),
-                                 kMainProgramSize)};
-      /* __REV for endianness fix
-       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
-       */
-      crc = __REV(~crc);
-
-      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
-             server_address.data(), server_port);
-      break;
-    }
-    case Command::kGetFirmwareUpdaterChecksum: {
-      const std::uint16_t firmware_updater_size{
-          static_cast<const uint16_t>((buffer[11] << 8u | buffer[12]) / 4u)};
-      auto crc{HAL_CRC_Calculate(
-          &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
-          firmware_updater_size)};
-
-      /* __REV for endianness fix
-       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
-       */
-      crc = __REV(~crc);
-
-      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
-             server_address.data(), server_port);
-      break;
-    }
-    case Command::kSwapPanels:
-      Panel::SwapPanels();
-      break;
-    case Command::kSetWhiteBalance: {
+    case kSetWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
@@ -342,7 +257,28 @@ void Network::HandleCommandProtocol() {
       Panel::GetPanel(Panel::RIGHT).SendWhiteBalance(white_balance);
       break;
     }
-    case Command::kFlashFirmwareUpdater: {
+    case kUseInternalAnimation:
+      Panel::SetInternalAnimation(true);
+      break;
+    case kUseExternalAnimation:
+      Panel::SetInternalAnimation(false);
+      break;
+    case kSwapPanels:
+      Panel::SwapPanels();
+      break;
+    case kBlank:
+      Panel::BlankAll();
+      break;
+    case kReboot:
+      HAL_NVIC_SystemReset();
+      break;
+    case kStartFirmwareUpdate: {
+      // Generate jump instruction, no going back
+      void *f{firmware_updater_start};
+      goto *f;
+      break;
+    }
+    case kFlashFirmwareUpdater: {
       // For program and erase operations on the Flash memory (write/erase), the
       // internal RC oscillator (HSI) must be ON.
       RCC_OscInitTypeDef RCC_OscInitStruct = {
@@ -452,25 +388,73 @@ void Network::HandleCommandProtocol() {
       HAL_FLASH_Lock();
       break;
     }
+    // Immutable comamnds
+    case kPing:
+      sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
+             server_port);
+      break;
+    case kGetStatus: {
+      std::array<char, 256> status_string{};
+      sendto(
+          kCommandSocket,
+          reinterpret_cast<std::uint8_t *>(status_string.data()),
+          static_cast<std::uint16_t>(std::snprintf(
+              status_string.data(), status_string.size(),
+              // clang-format off
+              "MUEB FW version: %s\n"
+              "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+              "Internal animation: %s\n"
+              "Command socket buffer: %#x\n"
+              "Broadcast socket buffer: %#x\n"
+              "SEM forever",
+              // clang-format on
+              mueb_version, net_info.mac[0], net_info.mac[1], net_info.mac[2],
+              net_info.mac[3], net_info.mac[4], net_info.mac[5],
+              Panel::internal_animation_enabled() ? "on" : "off",
+              getSn_RX_RSR(kCommandSocket), getSn_RX_RSR(kAnimationSocket))),
+          server_address.data(), server_port);
+      break;
+    }
+    case kGetMac: {
+      std::array<char, 18u> mac{};
+      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
+             static_cast<std::uint16_t>(std::snprintf(
+                 mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", net_info.mac[0],
+                 net_info.mac[1], net_info.mac[2], net_info.mac[3],
+                 net_info.mac[4], net_info.mac[5])),
+             server_address.data(), server_port);
+      break;
+    }
+    case kGetFirmwareChecksum: {
+      auto crc{HAL_CRC_Calculate(&hcrc,
+                                 reinterpret_cast<std::uint32_t *>(FLASH_BASE),
+                                 kMainProgramSize)};
+      /* __REV for endianness fix
+       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
+       */
+      crc = __REV(~crc);
+
+      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
+             server_address.data(), server_port);
+      break;
+    }
+    case kGetFirmwareUpdaterChecksum: {
+      const std::uint16_t firmware_updater_size{
+          static_cast<const uint16_t>((buffer[11] << 8u | buffer[12]) / 4u)};
+      auto crc{HAL_CRC_Calculate(
+          &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
+          firmware_updater_size)};
+
+      /* __REV for endianness fix
+       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
+       */
+      crc = __REV(~crc);
+
+      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
+             server_address.data(), server_port);
+      break;
+    }
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
-}
-
-void Network::FlushSocketBuffers() {
-  auto size{getSn_RX_RSR(kCommandSocket)};
-
-  if (size) {
-    wiz_recv_ignore(kCommandSocket, getSn_RX_RSR(kCommandSocket));
-    setSn_CR(kCommandSocket, Sn_CR_RECV);
-    while (getSn_CR(kCommandSocket)) {
-    }
-  }
-
-  if ((size = getSn_RX_RSR(kAnimationSocket))) {
-    wiz_recv_ignore(kAnimationSocket, size);
-    setSn_CR(kAnimationSocket, Sn_CR_RECV);
-    while (getSn_CR(kAnimationSocket)) {
-    }
-  }
 }

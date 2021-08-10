@@ -34,10 +34,10 @@ class Panel final {
   static constexpr std::size_t kPixelCount{4u};
 
   /// Stores pixels size in bytes.
-  static constexpr std::size_t kPanelColorDataSize{kPixelCount * 3u};
+  static constexpr std::size_t kColorDataSize{kPixelCount * 3u};
 
   /// Stores the color values of the panel pixels.
-  using PanelColorData = std::array<std::uint8_t, kPanelColorDataSize>;
+  using ColorData = std::array<std::uint8_t, kColorDataSize>;
 
   /// Stores white balance data size.
   static constexpr std::size_t kWhiteBalanceDataSize{21u};
@@ -120,7 +120,7 @@ class Panel final {
   void Blank();
 
   /// Send pixel data to panel.
-  void SendPixels(const PanelColorData& pixels);
+  void SendPixels(const ColorData& pixels);
 
   /// Send white balance data to panel.
   void SendWhiteBalance(const WhiteBalanceData& white_balance);
@@ -139,8 +139,7 @@ class Panel final {
       kConfigCommand};
 
   /// DMA TX buffer.
-  std::array<std::uint8_t, kPanelColorDataSize + 1u> dma_tx_buffer_{
-      kInitCommand};
+  std::array<std::uint8_t, kColorDataSize + 1u> dma_tx_buffer_{kInitCommand};
 
   /// Stores state of panel @see #Status.
   Status status_{kPowerOff};

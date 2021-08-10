@@ -18,24 +18,25 @@ class Network final {
  public:
   /// Byte code for network commands.
   enum Command {
-    kDisableLeftPanel,            ///< Disable left panel
-    kDisableRightPanel,           ///< Disable right panel
-    kResetLeftPanel,              ///< Reset left panel
-    kResetRightPanel,             ///< Reset right panel
-    kReboot,                      ///< Reboot device
+    // Mutable commands
+    kDisableLeftPanel,      ///< Disable left panel
+    kDisableRightPanel,     ///< Disable right panel
+    kResetLeftPanel,        ///< Reset left panel
+    kResetRightPanel,       ///< Reset right panel
+    kSetWhiteBalance,       ///< Set white balance
+    kUseInternalAnimation,  ///< Use internal animation
+    kUseExternalAnimation,  ///< Use external animation
+    kSwapPanels,            ///< Swap left and right panels
+    kBlank,                 ///< Blank both panels
+    kReboot,                ///< Reboot device
+    kStartFirmwareUpdate,   ///< Start firmware update process
+    kFlashFirmwareUpdater,  ///< Flash firmware updater
+    // Immutable comamnds
+    kPing,                        ///< Send back 'pong' response
     kGetStatus,                   ///< Get device's status
     kGetMac,                      ///< Get device's MAC address
-    kUseInternalAnim,             ///< Use internal animation
-    kUseExternalAnim,             ///< Use external animation
-    kBlank,                       ///< Blank both panels
-    kFlushSocketBuffers,          ///< Flush socket buffers
-    kPing,                        ///< Send back 'pong' response
-    kStartFirmwareUpdate,         ///< Start firmware update process
     kGetFirmwareChecksum,         ///< Return main program checksum
     kGetFirmwareUpdaterChecksum,  ///< Return firmware updater checksum
-    kSwapPanels,                  ///< Swap left and right panels
-    kSetWhiteBalance,             ///< Set white balance
-    kFlashFirmwareUpdater         ///< Flash firmware updater
   };
 
   /// Firmware updater port number.
@@ -54,15 +55,20 @@ class Network final {
   void Step();
 
  private:
-  /// Animation protocol multicast destination address.
+  /// Animation protocol multicast destination address. 239.6.0.1.
   static constexpr std::array<std::uint8_t, 4u>
       kAnimationSocketMulticastAddress{239u, 6u, 0u, 1u};
+
+  static constexpr std::uint16_t kMtu{1500u};
 
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 
   /// Animation socket port number.
   static constexpr std::uint16_t kAnimationSocketPort{50001u};
+
+  /// Expected animation protocol packet size.
+  static constexpr std::uint16_t kAnimationProtocolSize{1250u};
 
   /// EUI-48 MAC start address.
   static constexpr std::uint16_t kEui48MacStartAddress{0xFAu};
@@ -82,8 +88,7 @@ class Network final {
   /// Currently supported animation protocol version number.
   static constexpr std::uint8_t kAnimationProtocolVersion{2u};
 
-  /// Expected animation protocol packet size.
-  static constexpr std::uint16_t kAnimationProtocolSize{1250u};
+  static constexpr std::uint8_t kCommandProtocolMaxSize{32u};
 
   Network();
 
@@ -100,9 +105,6 @@ class Network final {
    * @see #Command.
    */
   void HandleCommandProtocol();
-
-  /// Flushes socket buffers.
-  static void FlushSocketBuffers();
 
   /**
    * DHCP RX buffer.
