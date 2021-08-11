@@ -24,9 +24,5 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 }
 
 extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  if (huart == &huart1) {
-    Panel::right_panel().Heartbeat();
-  } else if (huart == &huart2) {
-    Panel::left_panel().Heartbeat();
-  }
+  Panel::GetPanel(Panel::GetSide(huart)).Heartbeat();
 }

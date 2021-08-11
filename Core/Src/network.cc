@@ -17,6 +17,7 @@
 
 #include "crc.h"
 #include "i2c.h"
+#include "main.h"
 #include "panel.h"
 #include "tim.h"
 #include "version.h"
@@ -70,6 +71,35 @@ void IpConflict() {
 }
 }  // namespace
 
+Network &Network::Instance() {
+  static Network network;
+
+  return network;
+}
+
+void Network::Step() {
+  if (wizphy_getphylink() == PHY_LINK_ON) {
+    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
+
+    if (DHCP_run() == DHCP_FAILED) {
+      HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
+    }
+
+    if (getSn_RX_RSR(kCommandSocket) > 0u) {
+      HandleCommandProtocol();
+    }
+
+    if (getSn_RX_RSR(kAnimationSocket) > 0u && net_info.ip[2] != 0u &&
+        net_info.ip[3] != 0u) {
+      HandleAnimationProtocol();
+    }
+  } else {
+    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
+    DhcpRebind();
+  }
+}
+
 Network::Network() {
   // -- Do not remove --
   // Hardware reset W5500
@@ -112,39 +142,10 @@ Network::Network() {
   // Enable multicast and join multicast group
   setsockopt(
       kAnimationSocket, SO_DESTIP,
-      const_cast<std::uint8_t *>(kAnimationSocketMulticastAddress.data()));
+      const_cast<std::uint8_t *>(kAnimationProtocolMulticastAddress.data()));
   setsockopt(kAnimationSocket, SO_DESTPORT,
              const_cast<std::uint16_t *>(&kAnimationSocketPort));
   socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
-}
-
-Network &Network::Instance() {
-  static Network network;
-
-  return network;
-}
-
-void Network::Step() {
-  if (wizphy_getphylink() == PHY_LINK_ON) {
-    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
-
-    if (DHCP_run() == DHCP_FAILED) {
-      HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-    }
-
-    if (getSn_RX_RSR(kCommandSocket) > 0u) {
-      HandleCommandProtocol();
-    }
-
-    if (getSn_RX_RSR(kAnimationSocket) > 0u && net_info.ip[2] != 0u &&
-        net_info.ip[3] != 0u) {
-      HandleAnimationProtocol();
-    }
-  } else {
-    HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-    DhcpRebind();
-  }
 }
 
 template <std::size_t N>
@@ -191,12 +192,12 @@ void Network::HandleAnimationProtocol() {
       i = i - 3u + 48u;
     } else if (bytes == 6u) {
       // Send left panel data
-      Panel::GetPanel(Panel::LEFT).SendPixels(colors);
+      Panel::GetPanel(Panel::Side::LEFT).SendPixels(colors);
       i -= 48u;
       colors_begin = colors.begin();
     } else if (bytes == 12u) {
       // Send right panel data
-      Panel::GetPanel(Panel::RIGHT).SendPixels(colors);
+      Panel::GetPanel(Panel::Side::RIGHT).SendPixels(colors);
       break;
     }
 
@@ -235,187 +236,82 @@ void Network::HandleCommandProtocol() {
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
-  switch (buffer[3]) {
+  switch (static_cast<Command>(buffer[3])) {
       // Mutable commands
-    case kDisableLeftPanel:
-      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kDisabled);
+    case Command::kDisableLeftPanel:
+      Panel::GetPanel(Panel::Side::LEFT).Disable();
       break;
-    case kDisableRightPanel:
-      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kDisabled);
+    case Command::kDisableRightPanel:
+      Panel::GetPanel(Panel::Side::RIGHT).Disable();
       break;
-    case kResetLeftPanel:
-      Panel::GetPanel(Panel::LEFT).SetStatus(Panel::kPowerOff);
+    case Command::kEnableLeftPanel:
+      Panel::GetPanel(Panel::Side::LEFT).Enable();
       break;
-    case kResetRightPanel:
-      Panel::GetPanel(Panel::RIGHT).SetStatus(Panel::kPowerOff);
+    case Command::kEnableRightPanel:
+      Panel::GetPanel(Panel::Side::RIGHT).Enable();
       break;
-    case kSetWhiteBalance: {
+    case Command::kSetWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
-      Panel::GetPanel(Panel::LEFT).SendWhiteBalance(white_balance);
-      Panel::GetPanel(Panel::RIGHT).SendWhiteBalance(white_balance);
+      Panel::SendWhiteBalanceToAll(white_balance);
       break;
     }
-    case kUseInternalAnimation:
+    case Command::kUseInternalAnimation:
       Panel::SetInternalAnimation(true);
       break;
-    case kUseExternalAnimation:
+    case Command::kUseExternalAnimation:
       Panel::SetInternalAnimation(false);
       break;
-    case kSwapPanels:
-      Panel::SwapPanels();
+    case Command::kSwapPanels:
+      Panel::Swap();
       break;
-    case kBlank:
+    case Command::kBlank:
       Panel::BlankAll();
       break;
-    case kReboot:
+    case Command::kReset:
       HAL_NVIC_SystemReset();
       break;
-    case kStartFirmwareUpdate: {
+    case Command::kStartFirmwareUpdate: {
       // Generate jump instruction, no going back
       void *f{firmware_updater_start};
       goto *f;
       break;
     }
-    case kFlashFirmwareUpdater: {
-      // For program and erase operations on the Flash memory (write/erase), the
-      // internal RC oscillator (HSI) must be ON.
-      RCC_OscInitTypeDef RCC_OscInitStruct = {
-          .OscillatorType = RCC_OSCILLATORTYPE_HSI, .HSIState = RCC_HSI_ON};
-      if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-        break;
-      }
-
-      if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort,
-                 0x00u) != kFirmwareUpdaterSocket) {
-        break;
-      }
-
-      if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
-        break;
-      }
-
-      std::uint8_t status;
-      do {
-        getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-      } while (status != SOCK_ESTABLISHED);
-
-      // The function HAL_FLASH_Unlock() should be called before to unlock the
-      // FLASH interface
-      if (HAL_FLASH_Unlock() != HAL_OK) {
-        disconnect(kFirmwareUpdaterSocket);
-        close(kFirmwareUpdaterSocket);
-        break;
-      }
-
-      // FLASH should be previously erased before new programming
-      FLASH_EraseInitTypeDef pEraseInit = {
-          .TypeErase = FLASH_TYPEERASE_PAGES,
-          .PageAddress =
-              reinterpret_cast<std::uint32_t>(firmware_updater_start),
-          .NbPages = reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
-      std::uint32_t PageError;
-      if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
-        // If this fails we can't do much
-        disconnect(kFirmwareUpdaterSocket);
-        close(kFirmwareUpdaterSocket);
-        break;
-      }
-
-      // Write flash page by page
-      std::int32_t recv_size{0u};
-      std::uint32_t base_addr{
-          reinterpret_cast<std::uint32_t>(firmware_updater_start)};
-      do {
-        std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_buffer{};
-        std::uint32_t *flash_buffer_p{
-            reinterpret_cast<std::uint32_t *>(flash_buffer.data())};
-        recv_size =
-            recv(kFirmwareUpdaterSocket, flash_buffer.data(), FLASH_PAGE_SIZE);
-
-        // Overwrite protection
-        if (base_addr + recv_size >=
-            reinterpret_cast<std::uint32_t>(flash_end)) {
-          disconnect(kFirmwareUpdaterSocket);
-          close(kFirmwareUpdaterSocket);
-          break;
-        }
-
-        if (recv_size > 0) {
-          for (std::size_t i{0u}; i < recv_size / 4u; i++) {
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_addr + i * 4u,
-                                  flash_buffer_p[i]) != HAL_OK) {
-              // If this fails we can't do much
-              disconnect(kFirmwareUpdaterSocket);
-              close(kFirmwareUpdaterSocket);
-              break;
-            }
-          }
-
-          // Handle odd recv_size, write last byte
-          // This should not be called because of alignment
-          if (recv_size % 2u != 0u) {
-            std::int32_t last_byte = recv_size - 1;
-            if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
-                                  base_addr + last_byte,
-                                  flash_buffer[last_byte]) != HAL_OK) {
-              // If this fails we can't do much
-              disconnect(kFirmwareUpdaterSocket);
-              close(kFirmwareUpdaterSocket);
-              break;
-            }
-          }
-
-          base_addr += recv_size;
-        } else {
-          disconnect(kFirmwareUpdaterSocket);
-          close(kFirmwareUpdaterSocket);
-          break;
-        }
-
-        getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-      } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0u ||
-               status != SOCK_CLOSE_WAIT);
-
-      send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
-      disconnect(kFirmwareUpdaterSocket);
-      close(kFirmwareUpdaterSocket);
-
-      // The function HAL_FLASH_Lock() should be called after to lock the FLASH
-      // interface
-      // Should not fail
-      HAL_FLASH_Lock();
+    case Command::kFlashFirmwareUpdater:
+      FlashFirmwareUpdater();
       break;
-    }
-    // Immutable comamnds
-    case kPing:
+    // Immutable commands
+    case Command::kPing:
       sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
              server_port);
       break;
-    case kGetStatus: {
-      std::array<char, 256> status_string{};
-      sendto(
-          kCommandSocket,
-          reinterpret_cast<std::uint8_t *>(status_string.data()),
-          static_cast<std::uint16_t>(std::snprintf(
-              status_string.data(), status_string.size(),
-              // clang-format off
-              "MUEB FW version: %s\n"
-              "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-              "Internal animation: %s\n"
-              "Command socket buffer: %#x\n"
-              "Broadcast socket buffer: %#x\n"
-              "SEM forever",
-              // clang-format on
-              mueb_version, net_info.mac[0], net_info.mac[1], net_info.mac[2],
-              net_info.mac[3], net_info.mac[4], net_info.mac[5],
-              Panel::internal_animation_enabled() ? "on" : "off",
-              getSn_RX_RSR(kCommandSocket), getSn_RX_RSR(kAnimationSocket))),
-          server_address.data(), server_port);
+    case Command::kGetStatus: {
+      const char *format{
+          // clang-format off
+        "MUEB FW version: %s\n"
+        "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+        "Internal animation: %s\n"
+        "SEM & KSZK forever",
+          // clang-format on
+      };
+      const auto status_string_size = std::snprintf(
+          nullptr, 0u, format, mueb_version, net_info.mac[0], net_info.mac[1],
+          net_info.mac[2], net_info.mac[3], net_info.mac[4], net_info.mac[5],
+          Panel::internal_animation_enabled() ? "on" : "off");
+      char status_string[status_string_size + 1];
+
+      std::snprintf(status_string, sizeof status_string, format, mueb_version,
+                    net_info.mac[0], net_info.mac[1], net_info.mac[2],
+                    net_info.mac[3], net_info.mac[4], net_info.mac[5],
+                    Panel::internal_animation_enabled() ? "on" : "off");
+
+      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
+             static_cast<std::uint16_t>(status_string_size),
+             server_address.data(), server_port);
       break;
     }
-    case kGetMac: {
+    case Command::kGetMac: {
       std::array<char, 18u> mac{};
       sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
              static_cast<std::uint16_t>(std::snprintf(
@@ -425,30 +321,25 @@ void Network::HandleCommandProtocol() {
              server_address.data(), server_port);
       break;
     }
-    case kGetFirmwareChecksum: {
-      auto crc{HAL_CRC_Calculate(&hcrc,
-                                 reinterpret_cast<std::uint32_t *>(FLASH_BASE),
-                                 kMainProgramSize)};
-      /* __REV for endianness fix
-       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
+    case Command::kGetFirmwareChecksum: {
+      /* __REV, for endianness fix, little to big endian
+       * ~, negate(crc XOR 0xFFFFFFFF) for standard CRC32
        */
-      crc = __REV(~crc);
+      auto crc{__REV(~HAL_CRC_Calculate(
+          &hcrc, reinterpret_cast<std::uint32_t *>(FLASH_BASE),
+          kMainProgramSize))};
 
       sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
              server_address.data(), server_port);
       break;
     }
-    case kGetFirmwareUpdaterChecksum: {
+    case Command::kGetFirmwareUpdaterChecksum: {
+      // firmware updater size in words
       const std::uint16_t firmware_updater_size{
-          static_cast<const uint16_t>((buffer[11] << 8u | buffer[12]) / 4u)};
-      auto crc{HAL_CRC_Calculate(
+          static_cast<const std::uint16_t>(firmware_updater_size_ / 4u)};
+      auto crc{__REV(~HAL_CRC_Calculate(
           &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
-          firmware_updater_size)};
-
-      /* __REV for endianness fix
-       * negate(crc XOR 0xFFFFFFFF) for standard CRC32
-       */
-      crc = __REV(~crc);
+          firmware_updater_size))};
 
       sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
              server_address.data(), server_port);
@@ -457,4 +348,114 @@ void Network::HandleCommandProtocol() {
   }
 
   HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
+}
+
+void Network::FlashFirmwareUpdater() {
+  firmware_updater_size_ = 0;
+
+  // For program and erase operations on the Flash memory (write/erase), the
+  // internal RC oscillator (HSI) must be ON.
+  RCC_OscInitTypeDef RCC_OscInitStruct = {
+      .OscillatorType = RCC_OSCILLATORTYPE_HSI, .HSIState = RCC_HSI_ON};
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+    return;
+  }
+
+  if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort, 0x00u) !=
+      kFirmwareUpdaterSocket) {
+    return;
+  }
+
+  if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
+    return;
+  }
+
+  std::uint8_t status;
+  do {
+    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
+  } while (status != SOCK_ESTABLISHED);
+
+  // The function HAL_FLASH_Unlock() should be called before to unlock the
+  // FLASH interface
+  if (HAL_FLASH_Unlock() != HAL_OK) {
+    disconnect(kFirmwareUpdaterSocket);
+    close(kFirmwareUpdaterSocket);
+    return;
+  }
+
+  // FLASH should be previously erased before new programming
+  FLASH_EraseInitTypeDef pEraseInit = {
+      .TypeErase = FLASH_TYPEERASE_PAGES,
+      .PageAddress = reinterpret_cast<std::uint32_t>(firmware_updater_start),
+      .NbPages = reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
+  std::uint32_t PageError;
+  if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
+    disconnect(kFirmwareUpdaterSocket);
+    close(kFirmwareUpdaterSocket);
+    return;
+  }
+
+  // Write flash page by page
+  std::int32_t received_size;
+  std::uint32_t base_address{
+      reinterpret_cast<std::uint32_t>(firmware_updater_start)};
+  do {
+    std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
+    std::uint32_t *flash_page_buffer_p{
+        reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
+    received_size =
+        recv(kFirmwareUpdaterSocket, flash_page_buffer.data(), FLASH_PAGE_SIZE);
+
+    // Overwrite protection
+    if (base_address + received_size >=
+        reinterpret_cast<std::uint32_t>(flash_end)) {
+      disconnect(kFirmwareUpdaterSocket);
+      close(kFirmwareUpdaterSocket);
+      return;
+    }
+
+    if (received_size > 0u) {
+      for (std::size_t i{0u}; i < received_size / 4u; i++) {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
+                              flash_page_buffer_p[i]) != HAL_OK) {
+          disconnect(kFirmwareUpdaterSocket);
+          close(kFirmwareUpdaterSocket);
+          return;
+        }
+      }
+
+      /* Handle odd received_size, write last byte
+       * This should not happen because of alignment
+       */
+      if (received_size % 2u != 0u) {
+        std::uint32_t last_byte = received_size - 1u;
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
+                              base_address + last_byte,
+                              flash_page_buffer[last_byte]) != HAL_OK) {
+          disconnect(kFirmwareUpdaterSocket);
+          close(kFirmwareUpdaterSocket);
+          return;
+        }
+      }
+
+      base_address += received_size;
+      firmware_updater_size_ += received_size;
+    } else {
+      disconnect(kFirmwareUpdaterSocket);
+      close(kFirmwareUpdaterSocket);
+      return;
+    }
+
+    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
+  } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0u ||
+           status != SOCK_CLOSE_WAIT);
+
+  send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
+  disconnect(kFirmwareUpdaterSocket);
+  close(kFirmwareUpdaterSocket);
+
+  /* The function HAL_FLASH_Lock() should be called after to lock the FLASH
+   * interface
+   */
+  HAL_FLASH_Lock();
 }

@@ -58,8 +58,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define PANEL_POWER_LEFT_Pin GPIO_PIN_13
-#define PANEL_POWER_LEFT_GPIO_Port GPIOC
+#define PANEL_12v_LEFT_Pin GPIO_PIN_13
+#define PANEL_12v_LEFT_GPIO_Port GPIOC
 #define PANEL_ADC_3V3_LEFT_Pin GPIO_PIN_0
 #define PANEL_ADC_3V3_LEFT_GPIO_Port GPIOA
 #define PANEL_ADC_3V3_RIGHT_Pin GPIO_PIN_1
@@ -89,8 +89,8 @@ void Error_Handler(void);
 #define PANEL_TX_RIGHT_GPIO_Port GPIOA
 #define PANEL_RX_RIGHT_Pin GPIO_PIN_10
 #define PANEL_RX_RIGHT_GPIO_Port GPIOA
-#define PANEL_POWER_RIGHT_Pin GPIO_PIN_11
-#define PANEL_POWER_RIGHT_GPIO_Port GPIOA
+#define PANEL_12v_RIGHT_Pin GPIO_PIN_11
+#define PANEL_12v_RIGHT_GPIO_Port GPIOA
 #define PANEL_3V3_RIGHT_Pin GPIO_PIN_8
 #define PANEL_3V3_RIGHT_GPIO_Port GPIOB
 #define PANEL_3V3_LEFT_Pin GPIO_PIN_9

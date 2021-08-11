@@ -17,30 +17,31 @@
 class Panel final {
  public:
   /// #Panel status.
-  enum Status {
-    kDisabled,  ///< Disabled
-    kPowerOff,  ///< Power off 12v, 3v3, discharge capacitors
-    kVcc3v3On,  ///< Turn 3v3 on
-    kVcc12vOn   ///< Turn 12v on
+  enum class Status {
+    kDisabled,   ///< Disabled
+    kRestarted,  ///< Restarted
+    kPowerOff,   ///< Power off 12v, 3v3, discharge capacitors
+    kVcc3v3On,   ///< Turn 3v3 on
+    kVcc12vOn    ///< Turn 12v on
   };
 
   /**
    * Stores which side the panel is on viewed from outside.
    * @see #SwapWindows
    */
-  enum Side { LEFT, RIGHT };
+  enum class Side { LEFT, RIGHT };
 
   /// Stores pixel amount on one panel.
-  static constexpr std::size_t kPixelCount{4u};
+  static constexpr std::uint8_t kPixelCount{4u};
 
   /// Stores pixels size in bytes.
-  static constexpr std::size_t kColorDataSize{kPixelCount * 3u};
+  static constexpr std::uint8_t kColorDataSize{kPixelCount * 3u};
 
   /// Stores the color values of the panel pixels.
   using ColorData = std::array<std::uint8_t, kColorDataSize>;
 
   /// Stores white balance data size.
-  static constexpr std::size_t kWhiteBalanceDataSize{21u};
+  static constexpr std::uint8_t kWhiteBalanceDataSize{21u};
 
   /// Stores white balance configuration data.
   using WhiteBalanceData = std::array<std::uint8_t, kWhiteBalanceDataSize>;
@@ -51,6 +52,18 @@ class Panel final {
 
   Panel(const Panel&) = delete;
   Panel& operator=(const Panel&) = delete;
+
+  /**
+   * This function returns a #Panel instance using #swapped_.
+   * Can be used to get the correct panel even if the cables are swapped.
+   * @warning You should always use this function if the position of the panel.
+   * matters
+   * @see #Side
+   * @see network#SwapWindows
+   * @param side Which panel to get viewed from the outside
+   * @return Panel instance viewed from the outside
+   */
+  static Panel& GetPanel(Side side);
 
   /**
    * Increase #tick_1s_ by 1.
@@ -64,7 +77,7 @@ class Panel final {
    */
   static void ToggleInternalAnimation();
 
-  static void SetInternalAnimation(bool value);
+  static void SetInternalAnimation(bool on);
 
   static bool internal_animation_enabled();
 
@@ -72,7 +85,27 @@ class Panel final {
    * Swap panels.
    * @see #swapped_ network#kSwapPanels
    */
-  static void SwapPanels();
+  static void Swap();
+
+  static void BlankAll();
+
+  static void StepAll();
+
+  static void SendWhiteBalanceToAll(const WhiteBalanceData& white_balance);
+
+  static Side GetSide(UART_HandleTypeDef* huartx);
+
+  /// Send pixel data to panel.
+  void SendPixels(const ColorData& pixels);
+
+  void Heartbeat();
+
+  void Disable();
+
+  void Enable();
+
+ private:
+  explicit Panel(Side side);
 
   /**
    * Returns left #Panel instance independently of #swapped_.
@@ -88,22 +121,8 @@ class Panel final {
    */
   static Panel& right_panel();
 
-  /**
-   * This function returns a #Panel instance using #swapped_.
-   * Can be used to get the correct panel even if the cables are swapped.
-   * @warning You should always use this function if the position of the panel.
-   * matters
-   * @see #Side
-   * @see network#SwapWindows
-   * @param side Which panel to get viewed from the outside
-   * @return Panel instance viewed from the outside
-   */
-  static Panel& GetPanel(Side side);
-
-  static void BlankAll();
-
-  /// Panel class' loop
-  void Step();
+  /// Internal animation's loop
+  static void StepInternalAnimation();
 
   /**
    * Set status.
@@ -113,27 +132,21 @@ class Panel final {
    */
   void SetStatus(Status status);
 
+  /// Send white balance data to panel.
+  void SendWhiteBalance(const WhiteBalanceData& white_balance);
+
+  /// Panel class' loop
+  void Step();
+
   /**
    * Blanks the panel.
    * @see Network#kBlank
    */
   void Blank();
 
-  /// Send pixel data to panel.
-  void SendPixels(const ColorData& pixels);
+  static Panel& left_panel_;
 
-  /// Send white balance data to panel.
-  void SendWhiteBalance(const WhiteBalanceData& white_balance);
-
-  void Heartbeat();
-
- private:
-  Panel(GPIO_TypeDef* gpio_port_3v3, std::uint16_t gpio_pin_3v3,
-        GPIO_TypeDef* gpio_port_power, std::uint16_t gpio_pin_power,
-        UART_HandleTypeDef* huartx);
-
-  /// Internal animation's loop
-  static void StepInternalAnimation();
+  static Panel& right_panel_;
 
   std::array<std::uint8_t, kWhiteBalanceDataSize + 1u> white_balance_{
       kConfigCommand};
@@ -141,10 +154,10 @@ class Panel final {
   /// DMA TX buffer.
   std::array<std::uint8_t, kColorDataSize + 1u> dma_tx_buffer_{kInitCommand};
 
-  /// Stores state of panel @see #Status.
-  Status status_{kPowerOff};
-
   static std::array<std::uint32_t, 2u> adc_;
+
+  /// Stores state of panel @see #Status.
+  Status status_{Status::kPowerOff};
 
   ///@{
   /// Defined in main.h
@@ -160,18 +173,20 @@ class Panel final {
    */
   std::uint8_t tick_1s_{0u};
 
+  std::uint8_t heartbeat_{0u};
+
   /// Stores if the internal animation is enabled.
   static bool internal_animation_enabled_;
 
   /// Stores if left and right panels are swapped.
   static bool swapped_;
 
-  std::uint8_t heartbeat_{0u};
-
   /// Stores if we can communicate with the panel.
   bool active_{false};
 
   bool mx_uart_initialized_{false};
+
+  const Side side_;
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_PANEL_H_

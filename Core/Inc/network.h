@@ -17,21 +17,21 @@
 class Network final {
  public:
   /// Byte code for network commands.
-  enum Command {
+  enum class Command {
     // Mutable commands
     kDisableLeftPanel,      ///< Disable left panel
     kDisableRightPanel,     ///< Disable right panel
-    kResetLeftPanel,        ///< Reset left panel
-    kResetRightPanel,       ///< Reset right panel
+    kEnableLeftPanel,       ///< Reset left panel
+    kEnableRightPanel,      ///< Reset right panel
     kSetWhiteBalance,       ///< Set white balance
     kUseInternalAnimation,  ///< Use internal animation
     kUseExternalAnimation,  ///< Use external animation
     kSwapPanels,            ///< Swap left and right panels
     kBlank,                 ///< Blank both panels
-    kReboot,                ///< Reboot device
+    kReset,                 ///< Reboot device
     kStartFirmwareUpdate,   ///< Start firmware update process
     kFlashFirmwareUpdater,  ///< Flash firmware updater
-    // Immutable comamnds
+    // Immutable commands
     kPing,                        ///< Send back 'pong' response
     kGetStatus,                   ///< Get device's status
     kGetMac,                      ///< Get device's MAC address
@@ -57,7 +57,7 @@ class Network final {
  private:
   /// Animation protocol multicast destination address. 239.6.0.1.
   static constexpr std::array<std::uint8_t, 4u>
-      kAnimationSocketMulticastAddress{239u, 6u, 0u, 1u};
+      kAnimationProtocolMulticastAddress{239u, 6u, 0u, 1u};
 
   static constexpr std::uint16_t kMtu{1500u};
 
@@ -106,11 +106,15 @@ class Network final {
    */
   void HandleCommandProtocol();
 
+  void FlashFirmwareUpdater();
+
   /**
    * DHCP RX buffer.
    * @note 1 KB should be enough for DHCP RX buffer.
    */
   std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
+
+  std::uint16_t firmware_updater_size_{};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_

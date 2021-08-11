@@ -53,10 +53,10 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(PANEL_POWER_LEFT_GPIO_Port, PANEL_POWER_LEFT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(PANEL_12v_LEFT_GPIO_Port, PANEL_12v_LEFT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SPI1_NSS_Pin|PANEL_POWER_RIGHT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SPI1_NSS_Pin|PANEL_12v_RIGHT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, W5500_RSTn_Pin|PANEL_3V3_RIGHT_Pin|PANEL_3V3_LEFT_Pin, GPIO_PIN_SET);
@@ -65,11 +65,11 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, LED_JOKER_Pin|LED_COMM_Pin|LED_DHCP_Pin|LED_HEART_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PtPin */
-  GPIO_InitStruct.Pin = PANEL_POWER_LEFT_Pin;
+  GPIO_InitStruct.Pin = PANEL_12v_LEFT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PANEL_POWER_LEFT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(PANEL_12v_LEFT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PC14 PC15 */
   GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_15;
@@ -78,7 +78,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PAPin PAPin */
-  GPIO_InitStruct.Pin = SPI1_NSS_Pin|PANEL_POWER_RIGHT_Pin;
+  GPIO_InitStruct.Pin = SPI1_NSS_Pin|PANEL_12v_RIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
