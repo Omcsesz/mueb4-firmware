@@ -178,8 +178,6 @@ void Network::HandleAnimationProtocol() {
     return;
   }
 
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
-  HAL_TIM_OnePulse_Start_IT(&htim16, TIM_CHANNEL_1);
   Panel::SetInternalAnimation(false);
 
   auto buffer_begin{buffer.begin() + animation_buffer_offset};
@@ -235,7 +233,6 @@ void Network::HandleCommandProtocol() {
     }
   }
 
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_SET);
   switch (static_cast<Command>(buffer[3])) {
       // Mutable commands
     case Command::kDisableLeftPanel:
@@ -346,8 +343,6 @@ void Network::HandleCommandProtocol() {
       break;
     }
   }
-
-  HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
 }
 
 void Network::FlashFirmwareUpdater() {

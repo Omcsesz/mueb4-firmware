@@ -18,8 +18,6 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     HAL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin);
     DHCP_time_handler();
     Panel::TimeHandler();
-  } else if (htim == &htim16) {
-    HAL_GPIO_WritePin(LED_COMM_GPIO_Port, LED_COMM_Pin, GPIO_PIN_RESET);
   }
 }
 

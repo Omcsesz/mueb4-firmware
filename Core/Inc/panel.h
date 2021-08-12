@@ -161,10 +161,10 @@ class Panel final {
 
   ///@{
   /// Defined in main.h
-  GPIO_TypeDef* const gpio_port_3v3_;
-  GPIO_TypeDef* const gpio_port_power_;
+  GPIO_TypeDef* const gpio_3v3_port_;
+  GPIO_TypeDef* const gpio_12v_port_;
   UART_HandleTypeDef* const huartx_;
-  const std::uint16_t gpio_pin_3v3_, gpio_pin_power_;
+  const std::uint16_t gpio_3v3_pin_, gpio_12v_pin_;
   ///@}
 
   /**

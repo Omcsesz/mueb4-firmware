@@ -24,10 +24,10 @@ Panel& Panel::right_panel_{Panel::right_panel()};
 Panel& Panel::GetPanel(Side side) {
   const Side target{static_cast<Side>(static_cast<bool>(side) ^ swapped_)};
 
-  if (target == Side::LEFT) {
-    return right_panel_;
-  } else {
+  if (target == Side::RIGHT) {
     return left_panel_;
+  } else {
+    return right_panel_;
   }
 }
 
@@ -101,27 +101,31 @@ void Panel::Heartbeat() {
 }
 
 void Panel::Disable() {
-  if (status_ == Status::kDisabled) return;
+  if (status_ == Status::kDisabled || status_ == Status::kRestarted) {
+    return;
+  }
 
   SetStatus(Status::kDisabled);
 }
 
 void Panel::Enable() {
-  if (status_ != Status::kDisabled) return;
+  if (status_ != Status::kDisabled) {
+    return;
+  }
 
   SetStatus(Status::kRestarted);
 }
 
 Panel::Panel(Side side)
-    : gpio_port_3v3_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
+    : gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
                                         : PANEL_3V3_RIGHT_GPIO_Port),
-      gpio_port_power_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
-                                          : PANEL_12v_RIGHT_GPIO_Port),
+      gpio_12v_port_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
+                                        : PANEL_12v_RIGHT_GPIO_Port),
       huartx_(side == Side::LEFT ? &huart2 : &huart1),
-      gpio_pin_3v3_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
+      gpio_3v3_pin_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
                                        : PANEL_3V3_RIGHT_Pin),
-      gpio_pin_power_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
-                                         : PANEL_12v_RIGHT_Pin),
+      gpio_12v_pin_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
+                                       : PANEL_12v_RIGHT_Pin),
       side_(side) {}
 
 Panel& Panel::left_panel() {
@@ -184,8 +188,8 @@ void Panel::SetStatus(enum Status status) {
     case Status::kPowerOff: {
       active_ = false;
 
-      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
 
       // Turn UART off
       HAL_UART_DeInit(huartx_);
@@ -194,14 +198,14 @@ void Panel::SetStatus(enum Status status) {
       break;
     }
     case Status::kVcc3v3On: {
-      HAL_GPIO_WritePin(gpio_port_3v3_, gpio_pin_3v3_, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_RESET);
 
       // Turn UART on
       if (!mx_uart_initialized_) {
-        if (side_ == Side::RIGHT) {
-          MX_USART1_UART_Init();
-        } else {
+        if (side_ == Side::LEFT) {
           MX_USART2_UART_Init();
+        } else {
+          MX_USART1_UART_Init();
         }
 
         mx_uart_initialized_ = true;
@@ -214,10 +218,10 @@ void Panel::SetStatus(enum Status status) {
       break;
     }
     case Status::kVcc12vOn:
-      HAL_GPIO_WritePin(gpio_port_power_, gpio_pin_power_, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_SET);
       break;
     default:
-      return;
+      break;
   }
 
   status_ = status;

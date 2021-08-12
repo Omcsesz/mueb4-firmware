@@ -19,24 +19,24 @@ class Network final {
   /// Byte code for network commands.
   enum class Command {
     // Mutable commands
-    kDisableLeftPanel,      ///< Disable left panel
-    kDisableRightPanel,     ///< Disable right panel
-    kEnableLeftPanel,       ///< Reset left panel
-    kEnableRightPanel,      ///< Reset right panel
-    kSetWhiteBalance,       ///< Set white balance
-    kUseInternalAnimation,  ///< Use internal animation
-    kUseExternalAnimation,  ///< Use external animation
-    kSwapPanels,            ///< Swap left and right panels
-    kBlank,                 ///< Blank both panels
-    kReset,                 ///< Reboot device
-    kStartFirmwareUpdate,   ///< Start firmware update process
-    kFlashFirmwareUpdater,  ///< Flash firmware updater
+    kDisableLeftPanel = 0x00u,      ///< Disable left panel
+    kDisableRightPanel = 0x01u,     ///< Disable right panel
+    kEnableLeftPanel = 0x02u,       ///< Enable left panel
+    kEnableRightPanel = 0x03u,      ///< Enable right panel
+    kSetWhiteBalance = 0x04u,       ///< Set white balance
+    kUseInternalAnimation = 0x05u,  ///< Use internal animation
+    kUseExternalAnimation = 0x06u,  ///< Use external animation
+    kSwapPanels = 0x07u,            ///< Swap left and right panels
+    kBlank = 0x08u,                 ///< Blank both panels
+    kReset = 0x09u,                 ///< Reboot device
+    kStartFirmwareUpdate = 0x0Au,   ///< Start firmware update process
+    kFlashFirmwareUpdater = 0x0Bu,  ///< Flash firmware updater
     // Immutable commands
-    kPing,                        ///< Send back 'pong' response
-    kGetStatus,                   ///< Get device's status
-    kGetMac,                      ///< Get device's MAC address
-    kGetFirmwareChecksum,         ///< Return main program checksum
-    kGetFirmwareUpdaterChecksum,  ///< Return firmware updater checksum
+    kPing = 0x0Cu,                        ///< Send back 'pong' response
+    kGetStatus = 0xDu,                    ///< Get device's status
+    kGetMac = 0x0Eu,                      ///< Get device's MAC address
+    kGetFirmwareChecksum = 0x0Fu,         ///< Return main program checksum
+    kGetFirmwareUpdaterChecksum = 0x10u,  ///< Return firmware updater checksum
   };
 
   /// Firmware updater port number.
