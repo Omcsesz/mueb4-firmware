@@ -59,74 +59,71 @@ void Panel::BlankAll() {
 }
 
 void Panel::StepAll() {
-  left_panel().Step();
-  right_panel().Step();
+  left_panel_.Step();
+  right_panel_.Step();
+}
+
+void Panel::DisableAll() {
+  left_panel_.Disable();
+  right_panel_.Disable();
 }
 
 void Panel::SendWhiteBalanceToAll(
     const Panel::WhiteBalanceData& white_balance) {
-  left_panel().SendWhiteBalance(white_balance);
-  right_panel().SendWhiteBalance(white_balance);
+  left_panel_.SendWhiteBalance(white_balance);
+  right_panel_.SendWhiteBalance(white_balance);
 }
 
-Panel::Side Panel::GetSide(UART_HandleTypeDef* huart) {
-  if (huart == &huart1) {
-    return Side::RIGHT;
-  } else if (huart == &huart2) {
-    return Side::LEFT;
-  }
-}
-
-void Panel::SendPixels(const ColorData& pixels) {
-  if (status_ < Status::kVcc12vOn) {
+void Panel::SendColorData(const ColorData& colorData) {
+  if (state_ < State::kVcc12vOn) {
     return;
   }
 
   // NOLINTNEXTLINE
-  for (std::uint8_t i{0u}; i < pixels.size(); i++) {
-    dma_tx_buffer_[i + 1u] =
-        static_cast<std::uint8_t>(i << 4u | (pixels[i] & 0x07u));
+  for (std::uint8_t i{0u}; i < colorData.size(); i++) {
+    color_data_[i + 1u] =
+        static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x07u));
   }
 
-  HAL_UART_Transmit_DMA(huartx_, dma_tx_buffer_.data(), dma_tx_buffer_.size());
+  HAL_UART_Transmit_DMA(huartx_, color_data_.data(), color_data_.size());
 }
 
 void Panel::Heartbeat() {
-  HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
-  if (status_ < Status::kVcc3v3On || (heartbeat_ & 0xF0u) != 0x80u) {
-    return;
-  }
+  if (state_ == State::kVcc3v3On) {
+    HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
 
-  active_ = true;
+    if ((heartbeat_ & 0xF0u) == 0x80u) {
+      active_ = true;
+    } else {  // invalid state
+      active_ = false;
+    }
+  }
 }
 
-void Panel::Disable() {
-  if (status_ == Status::kDisabled || status_ == Status::kRestarted) {
-    return;
+Panel::Side Panel::side(UART_HandleTypeDef* huartx) {
+  if (huartx == &huart1) {
+    return Side::RIGHT;
+  } else if (huartx == &huart2) {
+    return Side::LEFT;
   }
 
-  SetStatus(Status::kDisabled);
+  return Side::LEFT;
 }
 
-void Panel::Enable() {
-  if (status_ != Status::kDisabled) {
-    return;
-  }
-
-  SetStatus(Status::kRestarted);
-}
+Panel::State Panel::state() { return state_; }
 
 Panel::Panel(Side side)
-    : gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
+    :  // NOLINTNEXTLINE
+      gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
                                         : PANEL_3V3_RIGHT_GPIO_Port),
       gpio_12v_port_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
                                         : PANEL_12v_RIGHT_GPIO_Port),
       huartx_(side == Side::LEFT ? &huart2 : &huart1),
+      side_(side),
       gpio_3v3_pin_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
                                        : PANEL_3V3_RIGHT_Pin),
       gpio_12v_pin_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
-                                       : PANEL_12v_RIGHT_Pin),
-      side_(side) {}
+                                       : PANEL_12v_RIGHT_Pin) {}
 
 Panel& Panel::left_panel() {
   static Panel instance(Side::LEFT);
@@ -168,8 +165,8 @@ void Panel::StepInternalAnimation() {
     }
   }
 
-  right_panel_.SendPixels(colors);
-  left_panel_.SendPixels(colors);
+  left_panel_.SendColorData(colors);
+  right_panel_.SendColorData(colors);
 
   color++;
   if (color == 8u) {
@@ -182,85 +179,59 @@ void Panel::StepInternalAnimation() {
   }
 }
 
-void Panel::SetStatus(enum Status status) {
-  switch (status) {
-    case Status::kDisabled:
-    case Status::kPowerOff: {
-      active_ = false;
+void Panel::SetState(enum State state) {
+  state_ = state;
 
-      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
-      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
-
-      // Turn UART off
-      HAL_UART_DeInit(huartx_);
-
-      tick_1s_ = 0u;
-      break;
-    }
-    case Status::kVcc3v3On: {
+  switch (state) {
+    case State::kVcc3v3On: {
       HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_RESET);
 
       // Turn UART on
-      if (!mx_uart_initialized_) {
-        if (side_ == Side::LEFT) {
-          MX_USART2_UART_Init();
-        } else {
-          MX_USART1_UART_Init();
-        }
-
-        mx_uart_initialized_ = true;
-      } else if (HAL_UART_Init(huartx_) != HAL_OK) {
-        Error_Handler();
+      if (side_ == Side::LEFT) {
+        MX_USART2_UART_Init();
+      } else {
+        MX_USART1_UART_Init();
       }
 
-      tick_1s_ = 0u;
       HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
+      tick_1s_ = 0u;
       break;
     }
-    case Status::kVcc12vOn:
+    case State::kVcc12vOn:
       HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_SET);
       break;
     default:
       break;
   }
-
-  status_ = status;
-}
-
-void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
-  if (status_ < Status::kVcc3v3On) {
-    return;
-  }
-
-  std::copy_n(white_balance.begin(), white_balance.size(),
-              white_balance_.begin() + 1u);
-  HAL_UART_Transmit_DMA(huartx_, white_balance_.data(), white_balance_.size());
 }
 
 void Panel::Step() {
-  switch (status_) {
-    case Status::kRestarted:
-    case Status::kPowerOff: {
+  switch (state_) {
+    case State::kPowerOff: {
       HAL_ADC_Start(&hadc);
+      // PA0/IN0/LEFT
       HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
       adc_[0] = HAL_ADC_GetValue(&hadc);
+
+      // PA1/IN1/RIGHT
       HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
       adc_[1] = HAL_ADC_GetValue(&hadc);
       HAL_ADC_Stop(&hadc);
 
       if ((side_ == Side::LEFT && adc_[0] < 100u) ||
           (side_ == Side::RIGHT && adc_[1] < 100u)) {
-        SetStatus(Status::kVcc3v3On);
+        SetState(State::kVcc3v3On);
       }
       break;
     }
 
-    case Status::kVcc3v3On: {
+    case State::kVcc3v3On: {
       if (tick_1s_ > 1u) {
         if (active_) {
-          SetStatus(Status::kVcc12vOn);
+          SetState(State::kVcc12vOn);
         } else {
-          SetStatus(Status::kDisabled);
+          // Should not happen when the cable is connected properly
+          SetState(State::kDisabled);
         }
       }
       break;
@@ -270,4 +241,17 @@ void Panel::Step() {
   }
 }
 
-void Panel::Blank() { SendPixels(Panel::ColorData{}); }
+void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
+  if (state_ < State::kVcc3v3On) {
+    return;
+  }
+
+  std::copy_n(white_balance.begin(), white_balance.size(),
+              white_balance_data_.begin() + 1u);
+  HAL_UART_Transmit_DMA(huartx_, white_balance_data_.data(),
+                        white_balance_data_.size());
+}
+
+void Panel::Blank() { SendColorData(Panel::ColorData{}); }
+
+void Panel::Disable() { SetState(State::kDisabled); }

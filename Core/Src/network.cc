@@ -145,7 +145,8 @@ Network::Network() {
       const_cast<std::uint8_t *>(kAnimationProtocolMulticastAddress.data()));
   setsockopt(kAnimationSocket, SO_DESTPORT,
              const_cast<std::uint16_t *>(&kAnimationSocketPort));
-  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
+  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort,
+         SF_MULTI_ENABLE | SF_IGMP_VER2);
 }
 
 template <std::size_t N>
@@ -155,10 +156,10 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   std::array<std::uint8_t, N> buffer{};
   std::array<std::uint8_t, 4u> server_address{};
   std::uint16_t server_port;
+
   std::int32_t size{recvfrom(socket_number, buffer.data(),
                              static_cast<std::uint16_t>(buffer.size()),
                              server_address.data(), &server_port)};
-
   if (size < 0 || (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
                                server_address.begin()) &&
                    server_address[2] != 0u)) {
@@ -190,12 +191,12 @@ void Network::HandleAnimationProtocol() {
       i = i - 3u + 48u;
     } else if (bytes == 6u) {
       // Send left panel data
-      Panel::GetPanel(Panel::Side::LEFT).SendPixels(colors);
+      Panel::GetPanel(Panel::Side::LEFT).SendColorData(colors);
       i -= 48u;
       colors_begin = colors.begin();
     } else if (bytes == 12u) {
       // Send right panel data
-      Panel::GetPanel(Panel::Side::RIGHT).SendPixels(colors);
+      Panel::GetPanel(Panel::Side::RIGHT).SendColorData(colors);
       break;
     }
 
@@ -235,17 +236,8 @@ void Network::HandleCommandProtocol() {
 
   switch (static_cast<Command>(buffer[3])) {
       // Mutable commands
-    case Command::kDisableLeftPanel:
-      Panel::GetPanel(Panel::Side::LEFT).Disable();
-      break;
-    case Command::kDisableRightPanel:
-      Panel::GetPanel(Panel::Side::RIGHT).Disable();
-      break;
-    case Command::kEnableLeftPanel:
-      Panel::GetPanel(Panel::Side::LEFT).Enable();
-      break;
-    case Command::kEnableRightPanel:
-      Panel::GetPanel(Panel::Side::RIGHT).Enable();
+    case Command::kDisablePanels:
+      Panel::DisableAll();
       break;
     case Command::kSetWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
@@ -270,7 +262,9 @@ void Network::HandleCommandProtocol() {
       HAL_NVIC_SystemReset();
       break;
     case Command::kStartFirmwareUpdate: {
-      // Generate jump instruction, no going back
+      /* Jump to firmware updater program segment, no going back
+       * Modifies PC
+       */
       void *f{firmware_updater_start};
       goto *f;
       break;
@@ -286,22 +280,28 @@ void Network::HandleCommandProtocol() {
     case Command::kGetStatus: {
       const char *format{
           // clang-format off
-        "MUEB FW version: %s\n"
+        "MUEB FW: %s\n"
         "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
         "Internal animation: %s\n"
+        "Left panel state: %#x\n"
+        "Right panel state: %#x\n"
         "SEM & KSZK forever",
           // clang-format on
       };
       const auto status_string_size = std::snprintf(
           nullptr, 0u, format, mueb_version, net_info.mac[0], net_info.mac[1],
           net_info.mac[2], net_info.mac[3], net_info.mac[4], net_info.mac[5],
-          Panel::internal_animation_enabled() ? "on" : "off");
+          (Panel::internal_animation_enabled() ? "on" : "off"),
+          Panel::GetPanel(Panel::Side::LEFT).state(),
+          Panel::GetPanel(Panel::Side::RIGHT).state());
       char status_string[status_string_size + 1];
 
       std::snprintf(status_string, sizeof status_string, format, mueb_version,
                     net_info.mac[0], net_info.mac[1], net_info.mac[2],
                     net_info.mac[3], net_info.mac[4], net_info.mac[5],
-                    Panel::internal_animation_enabled() ? "on" : "off");
+                    (Panel::internal_animation_enabled() ? "on" : "off"),
+                    Panel::GetPanel(Panel::Side::LEFT).state(),
+                    Panel::GetPanel(Panel::Side::RIGHT).state());
 
       sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
              static_cast<std::uint16_t>(status_string_size),
@@ -331,6 +331,10 @@ void Network::HandleCommandProtocol() {
       break;
     }
     case Command::kGetFirmwareUpdaterChecksum: {
+      if (!firmware_updater_size_) {
+        return;
+      }
+
       // firmware updater size in words
       const std::uint16_t firmware_updater_size{
           static_cast<const std::uint16_t>(firmware_updater_size_ / 4u)};

@@ -16,13 +16,12 @@
 /// Manages all panel related functionality.
 class Panel final {
  public:
-  /// #Panel status.
-  enum class Status {
-    kDisabled,   ///< Disabled
-    kRestarted,  ///< Restarted
-    kPowerOff,   ///< Power off 12v, 3v3, discharge capacitors
-    kVcc3v3On,   ///< Turn 3v3 on
-    kVcc12vOn    ///< Turn 12v on
+  /// #Panel state.
+  enum class State {
+    kDisabled = 0x00u,  ///< Panel is disabled
+    kPowerOff = 0x01u,  ///< 12v, 3v3 are off and capacitors are discharging
+    kVcc3v3On = 0x02u,  ///< 3v3 is on
+    kVcc12vOn = 0x03u   ///< 12v is on
   };
 
   /**
@@ -91,18 +90,17 @@ class Panel final {
 
   static void StepAll();
 
+  static void DisableAll();
+
   static void SendWhiteBalanceToAll(const WhiteBalanceData& white_balance);
 
-  static Side GetSide(UART_HandleTypeDef* huartx);
-
-  /// Send pixel data to panel.
-  void SendPixels(const ColorData& pixels);
+  void SendColorData(const ColorData& colorData);
 
   void Heartbeat();
 
-  void Disable();
+  static Side side(UART_HandleTypeDef* huartx);
 
-  void Enable();
+  State state();
 
  private:
   explicit Panel(Side side);
@@ -125,18 +123,18 @@ class Panel final {
   static void StepInternalAnimation();
 
   /**
-   * Set status.
-   * Changes the status of the panel and makes the necessary modifications on
+   * Set state.
+   * Changes the state of the panel and makes the necessary modifications on
    * the MCU.
-   * @see #Status
+   * @see #State
    */
-  void SetStatus(Status status);
-
-  /// Send white balance data to panel.
-  void SendWhiteBalance(const WhiteBalanceData& white_balance);
+  void SetState(State state);
 
   /// Panel class' loop
   void Step();
+
+  /// Send white balance data to panel.
+  void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
   /**
    * Blanks the panel.
@@ -144,28 +142,38 @@ class Panel final {
    */
   void Blank();
 
+  void Disable();
+
   static Panel& left_panel_;
 
   static Panel& right_panel_;
 
-  std::array<std::uint8_t, kWhiteBalanceDataSize + 1u> white_balance_{
+  static std::array<std::uint32_t, 2u> adc_;
+
+  /// Stores if the internal animation is enabled.
+  static bool internal_animation_enabled_;
+
+  /// Stores if left and right panels are swapped.
+  static bool swapped_;
+
+  std::array<std::uint8_t, kWhiteBalanceDataSize + 1u> white_balance_data_{
       kConfigCommand};
 
   /// DMA TX buffer.
-  std::array<std::uint8_t, kColorDataSize + 1u> dma_tx_buffer_{kInitCommand};
+  std::array<std::uint8_t, kColorDataSize + 1u> color_data_{kInitCommand};
 
-  static std::array<std::uint32_t, 2u> adc_;
-
-  /// Stores state of panel @see #Status.
-  Status status_{Status::kPowerOff};
-
-  ///@{
-  /// Defined in main.h
   GPIO_TypeDef* const gpio_3v3_port_;
   GPIO_TypeDef* const gpio_12v_port_;
   UART_HandleTypeDef* const huartx_;
-  const std::uint16_t gpio_3v3_pin_, gpio_12v_pin_;
-  ///@}
+
+  /// Stores state of panel @see #State.
+  State state_{State::kPowerOff};
+
+  const Side side_;
+
+  const std::uint16_t gpio_3v3_pin_;
+
+  const std::uint16_t gpio_12v_pin_;
 
   /**
    * Counts the seconds.
@@ -175,18 +183,8 @@ class Panel final {
 
   std::uint8_t heartbeat_{0u};
 
-  /// Stores if the internal animation is enabled.
-  static bool internal_animation_enabled_;
-
-  /// Stores if left and right panels are swapped.
-  static bool swapped_;
-
   /// Stores if we can communicate with the panel.
   bool active_{false};
-
-  bool mx_uart_initialized_{false};
-
-  const Side side_;
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_PANEL_H_
