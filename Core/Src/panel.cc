@@ -183,6 +183,14 @@ void Panel::SetState(enum State state) {
   state_ = state;
 
   switch (state) {
+    case State::kDisabled: {
+      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
+
+      // Turn UART off
+      HAL_UART_DeInit(huartx_);
+      break;
+    }
     case State::kVcc3v3On: {
       HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_RESET);
 
@@ -224,7 +232,6 @@ void Panel::Step() {
       }
       break;
     }
-
     case State::kVcc3v3On: {
       if (tick_1s_ > 1u) {
         if (active_) {

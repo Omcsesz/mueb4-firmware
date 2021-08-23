@@ -20,11 +20,11 @@ class Network final {
   enum class Command {
     // Mutable commands
     kDisablePanels = 0x00u,         ///< Disable all panels
-    kSetWhiteBalance = 0x01u,       ///< Set white balance
+    kSetPanelWhiteBalance = 0x01u,  ///< Set white balance
     kUseInternalAnimation = 0x02u,  ///< Use internal animation
     kUseExternalAnimation = 0x03u,  ///< Use external animation
     kSwapPanels = 0x04u,            ///< Swap left and right panels
-    kBlank = 0x05u,                 ///< Blank both panels
+    kBlankPanels = 0x05u,           ///< Blank both panels
     kReset = 0x06u,                 ///< Reboot device
     kStartFirmwareUpdate = 0x07u,   ///< Start firmware update process
     kFlashFirmwareUpdater = 0x08u,  ///< Flash firmware updater

@@ -110,7 +110,7 @@ SECTIONS
     _sbss = .;         /* define a global symbol at bss start */
     __bss_start__ = _sbss;
     
-    /* Fix SPI_HandleTypeDef hspi1 symbol location, it is used by firmare updater */
+    /* Fix SPI_HandleTypeDef hspi1 symbol location, it is used by firmware updater */
     *spi.o(COMMON)
     *(COMMON)
     *(.bss)

@@ -86,17 +86,16 @@ restart_update:
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
     received_size = recv(Network::kFirmwareUpdaterSocket,
                          flash_page_buffer.data(), FLASH_PAGE_SIZE);
-
-    // Overwrite protection
-    if (base_address + received_size >=
-        reinterpret_cast<std::uint32_t>(firmware_updater_start)) {
-      // At this point no return to main program, need to restart update
-      disconnect(Network::kFirmwareUpdaterSocket);
-      close(Network::kFirmwareUpdaterSocket);
-      goto restart_update;
-    }
-
     if (received_size > 0u) {
+      // Overwrite protection
+      if (base_address + received_size >=
+          reinterpret_cast<std::uint32_t>(firmware_updater_start)) {
+        // At this point no return to main program, need to restart update
+        disconnect(Network::kFirmwareUpdaterSocket);
+        close(Network::kFirmwareUpdaterSocket);
+        goto restart_update;
+      }
+
       for (std::size_t i{0u}; i < received_size / 4u; i++) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
                               flash_page_buffer_p[i]) != HAL_OK) {

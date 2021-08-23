@@ -14,6 +14,7 @@
 #include <cstring>
 #include <functional>
 #include <iterator>
+#include <tuple>
 
 #include "crc.h"
 #include "i2c.h"
@@ -239,7 +240,7 @@ void Network::HandleCommandProtocol() {
     case Command::kDisablePanels:
       Panel::DisableAll();
       break;
-    case Command::kSetWhiteBalance: {
+    case Command::kSetPanelWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
@@ -255,7 +256,7 @@ void Network::HandleCommandProtocol() {
     case Command::kSwapPanels:
       Panel::Swap();
       break;
-    case Command::kBlank:
+    case Command::kBlankPanels:
       Panel::BlankAll();
       break;
     case Command::kReset:
@@ -332,6 +333,9 @@ void Network::HandleCommandProtocol() {
     }
     case Command::kGetFirmwareUpdaterChecksum: {
       if (!firmware_updater_size_) {
+        sendto(kCommandSocket,
+               reinterpret_cast<std::uint8_t *>(&firmware_updater_size_), 1u,
+               server_address.data(), server_port);
         return;
       }
 
@@ -374,8 +378,9 @@ void Network::FlashFirmwareUpdater() {
     getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
   } while (status != SOCK_ESTABLISHED);
 
-  // The function HAL_FLASH_Unlock() should be called before to unlock the
-  // FLASH interface
+  /* The function HAL_FLASH_Unlock() should be called before to unlock the FLASH
+   * interface
+   */
   if (HAL_FLASH_Unlock() != HAL_OK) {
     disconnect(kFirmwareUpdaterSocket);
     close(kFirmwareUpdaterSocket);
@@ -404,16 +409,15 @@ void Network::FlashFirmwareUpdater() {
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
     received_size =
         recv(kFirmwareUpdaterSocket, flash_page_buffer.data(), FLASH_PAGE_SIZE);
-
-    // Overwrite protection
-    if (base_address + received_size >=
-        reinterpret_cast<std::uint32_t>(flash_end)) {
-      disconnect(kFirmwareUpdaterSocket);
-      close(kFirmwareUpdaterSocket);
-      return;
-    }
-
     if (received_size > 0u) {
+      // Overwrite protection
+      if (base_address + received_size >=
+          reinterpret_cast<std::uint32_t>(flash_end)) {
+        disconnect(kFirmwareUpdaterSocket);
+        close(kFirmwareUpdaterSocket);
+        return;
+      }
+
       for (std::size_t i{0u}; i < received_size / 4u; i++) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
                               flash_page_buffer_p[i]) != HAL_OK) {
