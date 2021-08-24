@@ -50,8 +50,8 @@ inline void UpdateIp() {
   wizchip_getnetinfo(&net_info);
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 
-  auto level_number = static_cast<std::uint8_t>(18u - net_info.ip[2]);
-  auto room_number = static_cast<std::uint8_t>(net_info.ip[3] - 5u);
+  auto level_number{static_cast<std::uint8_t>(18u - net_info.ip[2])};
+  auto room_number{static_cast<std::uint8_t>(net_info.ip[3] - 5u)};
   animation_buffer_offset =
       static_cast<std::uint16_t>((level_number * 96u + room_number * 6u) + 2u);
 }
