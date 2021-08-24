@@ -54,10 +54,6 @@ class Network final {
   void Step();
 
  private:
-  /// Animation protocol multicast destination address. 239.6.0.1.
-  static constexpr std::array<std::uint8_t, 4u>
-      kAnimationProtocolMulticastAddress{239u, 6u, 0u, 1u};
-
   static constexpr std::uint16_t kMtu{1500u};
 
   /// Command socket port number.
