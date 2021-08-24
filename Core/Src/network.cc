@@ -333,7 +333,7 @@ void Network::HandleCommandProtocol() {
 
       // firmware updater size in words
       const std::uint16_t firmware_updater_size{
-          static_cast<const std::uint16_t>(firmware_updater_size_ / 4u)};
+          static_cast<std::uint16_t>(firmware_updater_size_ / 4u)};
       auto crc{__REV(~HAL_CRC_Calculate(
           &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
           firmware_updater_size))};
