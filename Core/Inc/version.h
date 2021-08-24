@@ -5,14 +5,15 @@
  * @author Zsombor Bodnár
  */
 
-#pragma once
+#ifndef MATRIX4_MUEB_FW_INC_VERSION_H_
+#define MATRIX4_MUEB_FW_INC_VERSION_H_
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
 const char* mueb_version =
 
-    "v2.1"
+    "v3.0"
 
 #ifdef _COMMIT
     "-" STR(_COMMIT)
@@ -23,3 +24,5 @@ const char* mueb_version =
 #endif
 
     ;
+
+#endif  // MATRIX4_MUEB_FW_INC_VERSION_H_

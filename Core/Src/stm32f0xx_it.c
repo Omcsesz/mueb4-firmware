@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under BSD 3-Clause license,
@@ -23,7 +23,7 @@
 #include "stm32f0xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "dhcp.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,8 +48,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
-void window_time_handler();
-void window_internal_animation_toggle();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -58,9 +57,13 @@ void window_internal_animation_toggle();
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern TIM_HandleTypeDef htim17;
+extern TIM_HandleTypeDef htim6;
+extern DMA_HandleTypeDef hdma_usart1_tx;
+extern DMA_HandleTypeDef hdma_usart2_tx;
+extern UART_HandleTypeDef huart1;
+extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN EV */
-extern uint8_t time_to_next_frame;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -76,7 +79,9 @@ void NMI_Handler(void)
   /* USER CODE END NonMaskableInt_IRQn 0 */
   HAL_RCC_NMI_IRQHandler();
   /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
-
+  while (1)
+  {
+  }
   /* USER CODE END NonMaskableInt_IRQn 1 */
 }
 
@@ -143,26 +148,6 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
-  * @brief This function handles EXTI line 0 and 1 interrupts.
-  */
-void EXTI0_1_IRQHandler(void)
-{
-  /* USER CODE BEGIN EXTI0_1_IRQn 0 */
-
-  /* USER CODE END EXTI0_1_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_0) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_0);
-    /* USER CODE BEGIN LL_EXTI_LINE_0 */
-
-    /* USER CODE END LL_EXTI_LINE_0 */
-  }
-  /* USER CODE BEGIN EXTI0_1_IRQn 1 */
-
-  /* USER CODE END EXTI0_1_IRQn 1 */
-}
-
-/**
   * @brief This function handles EXTI line 2 and 3 interrupts.
   */
 void EXTI2_3_IRQHandler(void)
@@ -170,13 +155,7 @@ void EXTI2_3_IRQHandler(void)
   /* USER CODE BEGIN EXTI2_3_IRQn 0 */
 
   /* USER CODE END EXTI2_3_IRQn 0 */
-  if (LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_2) != RESET)
-  {
-    LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_2);
-    /* USER CODE BEGIN LL_EXTI_LINE_2 */
-    window_internal_animation_toggle();
-    /* USER CODE END LL_EXTI_LINE_2 */
-  }
+  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_2);
   /* USER CODE BEGIN EXTI2_3_IRQn 1 */
 
   /* USER CODE END EXTI2_3_IRQn 1 */
@@ -188,9 +167,9 @@ void EXTI2_3_IRQHandler(void)
 void DMA1_Channel2_3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 0 */
-  LL_DMA_ClearFlag_GI2(DMA1);
-  /* USER CODE END DMA1_Channel2_3_IRQn 0 */
 
+  /* USER CODE END DMA1_Channel2_3_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart1_tx);
   /* USER CODE BEGIN DMA1_Channel2_3_IRQn 1 */
 
   /* USER CODE END DMA1_Channel2_3_IRQn 1 */
@@ -202,30 +181,54 @@ void DMA1_Channel2_3_IRQHandler(void)
 void DMA1_Channel4_5_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 0 */
-  LL_DMA_ClearFlag_GI4(DMA1);
-  /* USER CODE END DMA1_Channel4_5_IRQn 0 */
 
+  /* USER CODE END DMA1_Channel4_5_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart2_tx);
   /* USER CODE BEGIN DMA1_Channel4_5_IRQn 1 */
 
   /* USER CODE END DMA1_Channel4_5_IRQn 1 */
 }
 
 /**
-  * @brief This function handles TIM17 global interrupt.
+  * @brief This function handles TIM6 global interrupt.
   */
-void TIM17_IRQHandler(void)
+void TIM6_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM17_IRQn 0 */
-  DHCP_time_handler();
-  LL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin); //TODO to be moved to the main loop
-  window_time_handler();
-  time_to_next_frame = 1;
+  /* USER CODE BEGIN TIM6_IRQn 0 */
 
-  /* USER CODE END TIM17_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim17);
-  /* USER CODE BEGIN TIM17_IRQn 1 */
+  /* USER CODE END TIM6_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim6);
+  /* USER CODE BEGIN TIM6_IRQn 1 */
 
-  /* USER CODE END TIM17_IRQn 1 */
+  /* USER CODE END TIM6_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART1 global interrupt.
+  */
+void USART1_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART1_IRQn 0 */
+
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+  /* USER CODE BEGIN USART1_IRQn 1 */
+
+  /* USER CODE END USART1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

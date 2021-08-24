@@ -1,4 +1,4 @@
-# matrix4-fw
+# mueb4-firmware
 
 Firmware for 4th generation MUEB.
 
@@ -12,23 +12,27 @@ Open **STM32CubeIDE**
 
 Use File->Open projects from file system
 
-Select **matrix4-fw** folder, click Finish
+Specify "Import source"
+
+Select **mueb4-firmware** folder, click Finish
 
 ### Download ST drivers
 
 Help->Manage embedded software packages
 
-Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the **latest version** or **1.11.0**
+Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the **1.11.x version**
 
 ### Generating code
 
-Open **matrix4_mueb_fw.ioc** from **STM32CubeIDE**
+Open **mueb4-firmware.ioc** from **STM32CubeIDE**
 
 Project->Generate code(ALT+K)
 
-**Code generator only generates/updates main.c not main.cpp**
+**Code generator only generates/updates main.c and the peripheral files not main.cc file**
 
-## Current hardware parameters
+**Code generator modifies the optimization level to -O3, make sure to discard it!**
+
+## Important hardware information
 
 ### Microcontroller
 

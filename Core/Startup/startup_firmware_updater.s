@@ -15,10 +15,12 @@ defined in linker script */
 /* end address for the .bss section. defined in linker script */
 .word _ebss
 
-  .section .text.Firmware_Update_Handler
-  .weak Firmware_Update_Handler
-  .type Firmware_Update_Handler, %function
-Firmware_Update_Handler:
+  .section .text.Firmware_Updater_Handler
+  .weak Firmware_Updater_Handler
+  .type Firmware_Updater_Handler, %function
+Firmware_Updater_Handler:
+  ldr   r0, =_estack
+  mov   sp, r0          /* set stack pointer */
 
 /* Copy the data segment initializers from flash to SRAM */
   ldr r0, =_sdata
@@ -54,10 +56,10 @@ LoopFillZerobss:
 /* Call static constructors */
   bl __libc_init_array
 /* Call the application's entry point.*/
-  bl firmware_update
+  bl FirmwareUpdater
 
 LoopForever:
     b LoopForever
 
 
-.size Firmware_Update_Handler, .-Firmware_Update_Handler
+.size Firmware_Updater_Handler, .-Firmware_Updater_Handler

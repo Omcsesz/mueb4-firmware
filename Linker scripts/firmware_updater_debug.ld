@@ -1,10 +1,28 @@
 /* Entry Point */
-ENTRY(Firmware_Update_Handler)
+ENTRY(Firmware_Updater_Handler)
+
+/* Highest address of the user mode stack */
+_estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
+
+/* Main program flash area pages */
+main_program_pages = (64K - LENGTH(FLASH)) / 1K;
+
+/* Firmware updater start */
+firmware_updater_start = ORIGIN(FLASH);
+
+/* Firmware updater flash area pages */
+firmware_updater_pages = (ORIGIN(FLASH) + 64K - firmware_updater_start) / 1K;
+
+/* SPI_HandleTypeDef */
+hspi1 = 0x20000000;
+
+_Min_Heap_Size = 0x200 ;	/* required amount of heap  */
+_Min_Stack_Size = 0x400 ;	/* required amount of stack */
 
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20001C00,   LENGTH = 1K
+  RAM    (xrw)    : ORIGIN = 0x20000064,   LENGTH = 8092
   FLASH    (rx)    : ORIGIN = 0x800D800,   LENGTH = 10K
 }
 
@@ -15,7 +33,7 @@ SECTIONS
   .text :
   {
     . = ALIGN(4);
-    *(.text.Firmware_Update_Handler)
+    *(.text.Firmware_Updater_Handler)
     *(.text)           /* .text sections (code) */
     *(.text*)          /* .text* sections (code) */
     *(.glue_7)         /* glue arm to thumb code */
@@ -91,6 +109,8 @@ SECTIONS
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
+    *(.RamFunc)        /* .RamFunc sections */
+    *(.RamFunc*)       /* .RamFunc* sections */    
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
@@ -111,6 +131,17 @@ SECTIONS
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
+  } >RAM
+
+  /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
+  ._user_heap_stack :
+  {
+    . = ALIGN(8);
+    PROVIDE ( end = . );
+    PROVIDE ( _end = . );
+    . = . + _Min_Heap_Size;
+    . = . + _Min_Stack_Size;
+    . = ALIGN(8);
   } >RAM
 
   /* Remove information from the compiler libraries */
