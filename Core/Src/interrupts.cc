@@ -22,5 +22,5 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 }
 
 extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-  Panel::GetPanel(Panel::side(huart)).Heartbeat();
+  Panel::GetPanel(huart).Heartbeat();
 }
