@@ -64,6 +64,8 @@ class Panel final {
    */
   static Panel& GetPanel(Side side);
 
+  static Panel& GetPanel(UART_HandleTypeDef* huartx);
+
   /**
    * Increase #tick_1s_ by 1.
    * @see ::TIM17_IRQHandler
@@ -97,8 +99,6 @@ class Panel final {
   void SendColorData(const ColorData& colorData);
 
   void Heartbeat();
-
-  static Side side(UART_HandleTypeDef* huartx);
 
   State state();
 

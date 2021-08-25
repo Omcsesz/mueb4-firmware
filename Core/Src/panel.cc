@@ -31,6 +31,16 @@ Panel& Panel::GetPanel(Side side) {
   }
 }
 
+Panel& Panel::GetPanel(UART_HandleTypeDef* huartx) {
+  if (huartx == &huart1) {
+    return right_panel_;
+  } else if (huartx == &huart2) {
+    return left_panel_;
+  }
+
+  return left_panel_;
+}
+
 void Panel::TimeHandler() {
   left_panel_.tick_1s_++;
   right_panel_.tick_1s_++;
@@ -98,16 +108,6 @@ void Panel::Heartbeat() {
       active_ = false;
     }
   }
-}
-
-Panel::Side Panel::side(UART_HandleTypeDef* huartx) {
-  if (huartx == &huart1) {
-    return Side::RIGHT;
-  } else if (huartx == &huart2) {
-    return Side::LEFT;
-  }
-
-  return Side::LEFT;
 }
 
 Panel::State Panel::state() { return state_; }
