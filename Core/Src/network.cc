@@ -38,38 +38,18 @@ namespace {
 const std::uint32_t kMainProgramSize =
     reinterpret_cast<std::uint32_t>(main_program_size) / 4u;
 
-std::uint16_t animation_buffer_offset;
-
 /**
  * Stores network information.
  * Contains MAC address, Source IP, Subnet mask etc.
  */
 wiz_NetInfo net_info{};
 
-inline void UpdateIp() {
-  wizchip_getnetinfo(&net_info);
-  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
+void CIpAssign() { Network::Instance().IpAssign(); }
 
-  auto level_number{static_cast<std::uint8_t>(18u - net_info.ip[2])};
-  auto room_number{static_cast<std::uint8_t>(net_info.ip[3] - 5u)};
-  animation_buffer_offset =
-      static_cast<std::uint16_t>((level_number * 96u + room_number * 6u) + 2u);
-}
+void CIpUpdate() { Network::Instance().IpUpdate(); }
 
-void IpAssign() {
-  default_ip_assign();
-  UpdateIp();
-}
+void CIpConflict() { Network::IpConflict(); }
 
-void IpUpdate() {
-  default_ip_update();
-  UpdateIp();
-}
-
-void IpConflict() {
-  default_ip_conflict();
-  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-}
 }  // namespace
 
 Network &Network::Instance() {
@@ -82,8 +62,13 @@ void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
 
-    if (DHCP_run() == DHCP_FAILED) {
+    uint8_t dhcp_status = DHCP_run();
+    if (dhcp_status == DHCP_FAILED || dhcp_status == DHCP_RUNNING) {
       HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
+    } else if (dhcp_status == DHCP_IP_ASSIGN ||
+               dhcp_status == DHCP_IP_CHANGED ||
+               dhcp_status == DHCP_IP_LEASED) {
+      HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
     }
 
     if (getSn_RX_RSR(kCommandSocket) > 0u) {
@@ -99,6 +84,33 @@ void Network::Step() {
     HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
     DhcpRebind();
   }
+}
+
+void Network::UpdateIp() {
+  wizchip_getnetinfo(&net_info);
+  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
+
+  auto level_number{static_cast<std::uint8_t>(18u - net_info.ip[2])};
+  auto room_number{static_cast<std::uint8_t>(net_info.ip[3] - 5u)};
+  animation_buffer_offset_ =
+      static_cast<std::uint16_t>((level_number * 96u + room_number * 6u) + 2u);
+}
+
+void Network::IpAssign() {
+  default_ip_assign();
+  UpdateIp();
+  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
+}
+
+void Network::IpUpdate() {
+  default_ip_update();
+  UpdateIp();
+  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
+}
+
+void Network::IpConflict() {
+  default_ip_conflict();
+  HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
 
 Network::Network() {
@@ -117,7 +129,7 @@ Network::Network() {
   reg_wizchip_cs_cbfunc(CsSel, CsDesel);
   reg_wizchip_spi_cbfunc(SpiRb, SpiWb);
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
-  reg_dhcp_cbfunc(IpAssign, IpUpdate, IpConflict);
+  reg_dhcp_cbfunc(CIpAssign, CIpUpdate, CIpConflict);
 
   // DHCP, command protocol, broadcast protocol, firmware socket rx/tx sizes
   std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u};
@@ -139,7 +151,13 @@ Network::Network() {
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
-  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, 0x00u);
+
+  // Configure multicast, IGMPv2
+  setSn_DHAR(kAnimationSocket,
+             const_cast<std::uint8_t *>(kMulticastHardwareAddress_.data()));
+  setSn_DIPR(kAnimationSocket,
+             const_cast<std::uint8_t *>(kMulticastAddress_.data()));
+  setSn_DPORT(kAnimationSocket, kAnimationSocketPort)
 }
 
 template <std::size_t N>
@@ -174,7 +192,7 @@ void Network::HandleAnimationProtocol() {
 
   Panel::SetInternalAnimation(false);
 
-  auto buffer_begin{buffer.begin() + animation_buffer_offset};
+  auto buffer_begin{buffer.begin() + animation_buffer_offset_};
   Panel::ColorData colors{};
   auto colors_begin{colors.begin()};
 
