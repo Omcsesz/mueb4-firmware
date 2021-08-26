@@ -97,7 +97,7 @@ void Panel::SendColorData(const ColorData& colorData) {
 }
 
 void Panel::Heartbeat() {
-  if (state_ == State::kVcc3v3On) {
+  if (state_ >= State::kVcc3v3On) {
     HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
 
     if ((heartbeat_ & 0xF0u) == 0x80u) {
@@ -205,6 +205,7 @@ void Panel::SetState(enum State state) {
     }
     case State::kVcc12vOn:
       HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_SET);
+      tick_1s_ = 0u;
       break;
     default:
       break;
@@ -236,6 +237,17 @@ void Panel::Step() {
           SetState(State::kVcc12vOn);
         } else {
           // Should not happen when the cable is connected properly
+          SetState(State::kDisabled);
+        }
+      }
+      break;
+    }
+    case State::kVcc12vOn: {
+      if (tick_1s_ > 1u) {
+        if (active_) {
+          tick_1s_ = 0u;
+          active_ = false;
+        } else {
           SetState(State::kDisabled);
         }
       }
