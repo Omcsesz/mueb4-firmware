@@ -53,6 +53,14 @@ class Network final {
   /// Network class' loop.
   void Step();
 
+  void UpdateIp();
+
+  void IpAssign();
+
+  void IpUpdate();
+
+  static void IpConflict();
+
  private:
   static constexpr std::uint16_t kMtu{1500u};
 
@@ -109,7 +117,14 @@ class Network final {
    */
   std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
 
+  static constexpr std::array<std::uint8_t, 6> kMulticastHardwareAddress_{
+      0x01u, 0x00u, 0x5eu, 0x06u, 0x00u, 0x01u};
+  static constexpr std::array<std::uint8_t, 4> kMulticastAddress_{239u, 6u, 0u,
+                                                                  1u};
+
   std::uint16_t firmware_updater_size_{0u};
+
+  std::uint16_t animation_buffer_offset_{0u};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_
