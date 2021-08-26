@@ -144,10 +144,6 @@ class Panel final {
 
   void Disable();
 
-  static Panel& left_panel_;
-
-  static Panel& right_panel_;
-
   static std::array<std::uint32_t, 2u> adc_;
 
   /// Stores if the internal animation is enabled.
