@@ -36,6 +36,7 @@ class Network final {
     kGetFirmwareUpdaterChecksum =
         0x0Du,  ///< Return firmware updater checksum, can be used after
                 ///< kFlashFirmwareUpdater
+    kGetPanelStates = 0x0Eu
   };
 
   /// Firmware updater port number.

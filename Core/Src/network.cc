@@ -360,6 +360,10 @@ void Network::HandleCommandProtocol() {
              server_address.data(), server_port);
       break;
     }
+    case Command::kGetPanelStates:
+      sendto(kCommandSocket, Panel::GetPanelStates().data(), 2,
+             server_address.data(), server_port);
+      break;
   }
 }
 

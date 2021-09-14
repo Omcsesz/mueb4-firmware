@@ -110,6 +110,11 @@ void Panel::Heartbeat() {
 
 Panel::State Panel::state() { return state_; }
 
+std::array<std::uint8_t, 2> Panel::GetPanelStates() {
+  return {static_cast<std::uint8_t>(left_panel().state_),
+          static_cast<std::uint8_t>(right_panel().state_)};
+}
+
 Panel::Panel(Side side)
     :  // NOLINTNEXTLINE
       gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port

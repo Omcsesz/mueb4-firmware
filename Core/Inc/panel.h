@@ -102,6 +102,8 @@ class Panel final {
 
   State state();
 
+  static std::array<std::uint8_t, 2> GetPanelStates();
+
  private:
   explicit Panel(Side side);
 
