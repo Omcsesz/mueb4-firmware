@@ -36,6 +36,7 @@ class Network final {
     kGetFirmwareUpdaterChecksum =
         0x0Du,  ///< Return firmware updater checksum, can be used after
                 ///< kFlashFirmwareUpdater
+    kGetPanelStates = 0x0Eu
   };
 
   /// Firmware updater port number.
@@ -91,7 +92,7 @@ class Network final {
   /// Currently supported animation protocol version number.
   static constexpr std::uint8_t kAnimationProtocolVersion{2u};
 
-  static constexpr std::uint8_t kCommandProtocolMaxSize{32u};
+  static constexpr std::uint8_t kCommandProtocolMaxSize{56u};
 
   Network();
 

@@ -90,7 +90,7 @@ void Panel::SendColorData(const ColorData& colorData) {
   // NOLINTNEXTLINE
   for (std::uint8_t i{0u}; i < colorData.size(); i++) {
     color_data_[i + 1u] =
-        static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x07u));
+        static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x0Fu));
   }
 
   HAL_UART_Transmit_DMA(huartx_, color_data_.data(), color_data_.size());
@@ -109,6 +109,11 @@ void Panel::Heartbeat() {
 }
 
 Panel::State Panel::state() { return state_; }
+
+std::array<std::uint8_t, 2> Panel::GetPanelStates() {
+  return {static_cast<std::uint8_t>(left_panel().state_),
+          static_cast<std::uint8_t>(right_panel().state_)};
+}
 
 Panel::Panel(Side side)
     :  // NOLINTNEXTLINE
@@ -167,7 +172,7 @@ void Panel::StepInternalAnimation() {
   Panel::right_panel().SendColorData(colors);
 
   color++;
-  if (color == 8u) {
+  if (color == 16u) {
     color = 0u;
 
     phase++;

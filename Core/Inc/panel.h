@@ -40,7 +40,7 @@ class Panel final {
   using ColorData = std::array<std::uint8_t, kColorDataSize>;
 
   /// Stores white balance data size.
-  static constexpr std::uint8_t kWhiteBalanceDataSize{21u};
+  static constexpr std::uint8_t kWhiteBalanceDataSize{45u};
 
   /// Stores white balance configuration data.
   using WhiteBalanceData = std::array<std::uint8_t, kWhiteBalanceDataSize>;
@@ -101,6 +101,8 @@ class Panel final {
   void Heartbeat();
 
   State state();
+
+  static std::array<std::uint8_t, 2> GetPanelStates();
 
  private:
   explicit Panel(Side side);
