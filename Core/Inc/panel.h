@@ -96,6 +96,9 @@ class Panel final {
 
   static void SendWhiteBalanceToAll(const WhiteBalanceData& white_balance);
 
+  /// Send white balance data to panel.
+  void SendWhiteBalance(const WhiteBalanceData& white_balance);
+
   void SendColorData(const ColorData& colorData);
 
   void Heartbeat();
@@ -134,9 +137,6 @@ class Panel final {
 
   /// Panel class' loop
   void Step();
-
-  /// Send white balance data to panel.
-  void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
   /**
    * Blanks the panel.

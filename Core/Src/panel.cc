@@ -82,6 +82,17 @@ void Panel::SendWhiteBalanceToAll(
   Panel::right_panel().SendWhiteBalance(white_balance);
 }
 
+void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
+  if (state_ < State::kVcc3v3On) {
+    return;
+  }
+
+  std::copy_n(white_balance.begin(), white_balance.size(),
+              white_balance_data_.begin() + 1u);
+  HAL_UART_Transmit_DMA(huartx_, white_balance_data_.data(),
+                        white_balance_data_.size());
+}
+
 void Panel::SendColorData(const ColorData& colorData) {
   if (state_ < State::kVcc12vOn) {
     return;
@@ -261,17 +272,6 @@ void Panel::Step() {
     default:
       break;
   }
-}
-
-void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
-  if (state_ < State::kVcc3v3On) {
-    return;
-  }
-
-  std::copy_n(white_balance.begin(), white_balance.size(),
-              white_balance_data_.begin() + 1u);
-  HAL_UART_Transmit_DMA(huartx_, white_balance_data_.data(),
-                        white_balance_data_.size());
 }
 
 void Panel::Blank() { SendColorData(Panel::ColorData{}); }

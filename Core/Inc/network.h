@@ -19,24 +19,25 @@ class Network final {
   /// Byte code for network commands.
   enum class Command {
     // Mutable commands
-    kDisablePanels = 0x00u,         ///< Disable all panels
-    kSetPanelWhiteBalance = 0x01u,  ///< Set white balance
-    kUseInternalAnimation = 0x02u,  ///< Use internal animation
-    kUseExternalAnimation = 0x03u,  ///< Use external animation
-    kSwapPanels = 0x04u,            ///< Swap left and right panels
-    kBlankPanels = 0x05u,           ///< Blank both panels
-    kReset = 0x06u,                 ///< Reboot device
-    kStartFirmwareUpdate = 0x07u,   ///< Start firmware update process
-    kFlashFirmwareUpdater = 0x08u,  ///< Flash firmware updater
+    kDisablePanels = 0x00u,          ///< Disable all panels
+    kSetPanelsWhiteBalance = 0x01u,  ///< Set panels white balance
+    kSetPanelWhiteBalance = 0x02u,   ///< Set one panel white balance
+    kUseInternalAnimation = 0x03u,   ///< Use internal animation
+    kUseExternalAnimation = 0x04u,   ///< Use external animation
+    kSwapPanels = 0x05u,             ///< Swap left and right panels
+    kBlankPanels = 0x06u,            ///< Blank both panels
+    kReset = 0x07u,                  ///< Reboot device
+    kStartFirmwareUpdate = 0x08u,    ///< Start firmware update process
+    kFlashFirmwareUpdater = 0x09u,   ///< Flash firmware updater
     // Immutable commands
-    kPing = 0x09u,                 ///< Send back 'pong' response
-    kGetStatus = 0x0Au,            ///< Get device's status
-    kGetMac = 0x0Bu,               ///< Get device's MAC address
-    kGetFirmwareChecksum = 0x0Cu,  ///< Return main program checksum
+    kPing = 0x0Au,                 ///< Send back 'pong' response
+    kGetStatus = 0x0Bu,            ///< Get device's status
+    kGetMac = 0x0Cu,               ///< Get device's MAC address
+    kGetFirmwareChecksum = 0x0Du,  ///< Return main program checksum
     kGetFirmwareUpdaterChecksum =
-        0x0Du,  ///< Return firmware updater checksum, can be used after
+        0x0Eu,  ///< Return firmware updater checksum, can be used after
                 ///< kFlashFirmwareUpdater
-    kGetPanelStates = 0x0Eu
+    kGetPanelStates = 0x0Fu
   };
 
   /// Firmware updater port number.
@@ -92,7 +93,7 @@ class Network final {
   /// Currently supported animation protocol version number.
   static constexpr std::uint8_t kAnimationProtocolVersion{2u};
 
-  static constexpr std::uint8_t kCommandProtocolMaxSize{56u};
+  static constexpr std::uint8_t kCommandProtocolMaxSize{57u};
 
   Network();
 
