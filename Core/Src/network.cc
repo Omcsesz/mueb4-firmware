@@ -250,11 +250,19 @@ void Network::HandleCommandProtocol() {
     case Command::kDisablePanels:
       Panel::DisableAll();
       break;
-    case Command::kSetPanelWhiteBalance: {
+    case Command::kSetPanelsWhiteBalance: {
       Panel::WhiteBalanceData white_balance{};
       std::copy_n(buffer.begin() + 11u, white_balance.size(),
                   white_balance.begin());
       Panel::SendWhiteBalanceToAll(white_balance);
+      break;
+    }
+    case Command::kSetPanelWhiteBalance: {
+      Panel::WhiteBalanceData white_balance{};
+      std::copy_n(buffer.begin() + 12u, white_balance.size(),
+                  white_balance.begin());
+      Panel::GetPanel(static_cast<Panel::Side>(buffer[11]))
+          .SendWhiteBalance(white_balance);
       break;
     }
     case Command::kUseInternalAnimation:
