@@ -17,6 +17,7 @@
 #include <tuple>
 
 #include "crc.h"
+#include "gpio.h"
 #include "i2c.h"
 #include "main.h"
 #include "panel.h"
@@ -190,6 +191,8 @@ void Network::HandleAnimationProtocol() {
     return;
   }
 
+  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
+
   Panel::SetInternalAnimation(false);
 
   auto buffer_begin{buffer.begin() + animation_buffer_offset_};
@@ -244,6 +247,8 @@ void Network::HandleCommandProtocol() {
       server_address.fill(0xFFu);
     }
   }
+
+  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
 
   switch (static_cast<Command>(buffer[3])) {
       // Mutable commands

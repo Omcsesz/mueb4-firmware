@@ -79,8 +79,8 @@ void Error_Handler(void);
 #define USER_INPUT_BUTTON_EXTI_IRQn EXTI2_3_IRQn
 #define LED_JOKER_Pin GPIO_PIN_12
 #define LED_JOKER_GPIO_Port GPIOB
-#define LED_COMM_Pin GPIO_PIN_13
-#define LED_COMM_GPIO_Port GPIOB
+#define LED_SERVER_Pin GPIO_PIN_13
+#define LED_SERVER_GPIO_Port GPIOB
 #define LED_DHCP_Pin GPIO_PIN_14
 #define LED_DHCP_GPIO_Port GPIOB
 #define LED_HEART_Pin GPIO_PIN_15
