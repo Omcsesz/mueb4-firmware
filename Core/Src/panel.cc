@@ -109,9 +109,8 @@ void Panel::SendColorData(const ColorData& colorData) {
 
 void Panel::Heartbeat() {
   if (state_ >= State::kVcc3v3On) {
-    HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
-
     if ((heartbeat_ & 0xF0u) == 0x80u) {
+      HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
       active_ = true;
     } else {  // invalid state
       active_ = false;
@@ -193,44 +192,10 @@ void Panel::StepInternalAnimation() {
   }
 }
 
-void Panel::SetState(enum State state) {
-  state_ = state;
-
-  switch (state) {
-    case State::kDisabled: {
-      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
-
-      // Turn UART off
-      HAL_UART_DeInit(huartx_);
-      break;
-    }
-    case State::kVcc3v3On: {
-      HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_RESET);
-
-      // Turn UART on
-      if (side_ == Side::LEFT) {
-        MX_USART2_UART_Init();
-      } else {
-        MX_USART1_UART_Init();
-      }
-
-      HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
-      tick_1s_ = 0u;
-      break;
-    }
-    case State::kVcc12vOn:
-      HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_SET);
-      tick_1s_ = 0u;
-      break;
-    default:
-      break;
-  }
-}
-
 void Panel::Step() {
   switch (state_) {
     case State::kPowerOff: {
+      // -- No debug --
       HAL_ADC_Start(&hadc);
       // PA0/IN0/LEFT
       HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
@@ -240,32 +205,73 @@ void Panel::Step() {
       HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
       adc_[1] = HAL_ADC_GetValue(&hadc);
       HAL_ADC_Stop(&hadc);
+      // -- No debug --
 
+      // Check if the capacitors are discharged
       if ((side_ == Side::LEFT && adc_[0] < 100u) ||
           (side_ == Side::RIGHT && adc_[1] < 100u)) {
-        SetState(State::kVcc3v3On);
+        // Turn 3v3 on
+        HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_RESET);
+        state_ = State::kVcc3v3On;
+
+        // Turn UART on
+        if (side_ == Side::LEFT) {
+          MX_USART2_UART_Init();
+        } else {
+          MX_USART1_UART_Init();
+        }
+
+        // Start heartbeat detection
+        HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
+        tick_1s_ = 0u;
       }
       break;
     }
     case State::kVcc3v3On: {
+      // Check PWM panel heartbeat after 1s
       if (tick_1s_ > 1u) {
+        // Check if panel is active
         if (active_) {
-          SetState(State::kVcc12vOn);
+          HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_SET);
+          state_ = State::kVcc12vOn;
+          tick_1s_ = 0u;
         } else {
-          // Should not happen when the cable is connected properly
-          SetState(State::kDisabled);
+          // Panel is inactive or disconnected
+          // Turn 3v3 off
+          HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
+
+          // Turn UART off
+          HAL_UART_DeInit(huartx_);
+
+          state_ = State::kPowerOff;
+          tick_1s_ = 0u;
         }
+
+        active_ = false;
       }
       break;
     }
     case State::kVcc12vOn: {
-      if (tick_1s_ > 1u) {
+      // Check if panel is active after 2s, 1s heartbeat + 1s PWM processing
+      if (tick_1s_ > 2u) {
         if (active_) {
           tick_1s_ = 0u;
-          active_ = false;
         } else {
-          SetState(State::kDisabled);
+          // Panel is inactive or disconnected
+          // Power off order: 12v, 3v3
+          HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
+
+          // Turn 3v3 off
+          HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
+
+          // Turn UART off
+          HAL_UART_DeInit(huartx_);
+
+          state_ = State::kPowerOff;
+          tick_1s_ = 0u;
         }
+
+        active_ = false;
       }
       break;
     }
@@ -276,4 +282,15 @@ void Panel::Step() {
 
 void Panel::Blank() { SendColorData(Panel::ColorData{}); }
 
-void Panel::Disable() { SetState(State::kDisabled); }
+void Panel::Disable() {
+  HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
+  // Turn 3v3 off
+  HAL_GPIO_WritePin(gpio_3v3_port_, gpio_3v3_pin_, GPIO_PIN_SET);
+
+  // Turn UART off
+  HAL_UART_DeInit(huartx_);
+
+  state_ = State::kDisabled;
+  tick_1s_ = 0u;
+  active_ = false;
+}

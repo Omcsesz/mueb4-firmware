@@ -127,14 +127,6 @@ class Panel final {
   /// Internal animation's loop
   static void StepInternalAnimation();
 
-  /**
-   * Set state.
-   * Changes the state of the panel and makes the necessary modifications on
-   * the MCU.
-   * @see #State
-   */
-  void SetState(State state);
-
   /// Panel class' loop
   void Step();
 
