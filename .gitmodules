@@ -1,4 +1,4 @@
 [submodule "ioLibrary_Driver"]
 	path = ioLibrary_Driver
-	url = git@git.sch.bme.hu:kszk/schmatrix/firmware/ioLibrary_Driver.git
-	branch = master
+	url = git@github.com:schonherz-matrix/ioLibrary_Driver.git
+	branch = schonherz-matrix
