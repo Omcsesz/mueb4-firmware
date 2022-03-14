@@ -106,7 +106,6 @@ void Network::IpAssign() {
 void Network::IpUpdate() {
   default_ip_update();
   UpdateIp();
-  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
 }
 
 void Network::IpConflict() {
@@ -396,20 +395,28 @@ void Network::FlashFirmwareUpdater() {
     return;
   }
 
+  // Enable TCP keep alive
+  setSn_KPALVTR(kFirmwareUpdaterSocket, 1u);
+
   if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
     return;
   }
 
   std::uint8_t status;
-  do {
+  while (true) {
     getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (status != SOCK_ESTABLISHED);
+    if (status == SOCK_ESTABLISHED) {
+      break;
+    } else if (status == SOCK_CLOSED) {
+      close(kFirmwareUpdaterSocket);
+      return;
+    }
+  }
 
   /* The function HAL_FLASH_Unlock() should be called before to unlock the FLASH
    * interface
    */
   if (HAL_FLASH_Unlock() != HAL_OK) {
-    disconnect(kFirmwareUpdaterSocket);
     close(kFirmwareUpdaterSocket);
     return;
   }
@@ -421,7 +428,6 @@ void Network::FlashFirmwareUpdater() {
       .NbPages = reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
   std::uint32_t PageError;
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
-    disconnect(kFirmwareUpdaterSocket);
     close(kFirmwareUpdaterSocket);
     return;
   }
@@ -431,53 +437,47 @@ void Network::FlashFirmwareUpdater() {
   std::uint32_t base_address{
       reinterpret_cast<std::uint32_t>(firmware_updater_start)};
   do {
+    // Send dummy packet to generate keep alive
+    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 1u);
+
+    if (getSn_RX_RSR(kFirmwareUpdaterSocket) == 0u) {
+      if (status == SOCK_CLOSE_WAIT) {
+        break;
+      }
+
+      continue;
+    }
+
     std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
     std::uint32_t *flash_page_buffer_p{
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
+
     received_size =
         recv(kFirmwareUpdaterSocket, flash_page_buffer.data(), FLASH_PAGE_SIZE);
-    if (received_size > 0u) {
-      // Overwrite protection
-      if (base_address + received_size >=
-          reinterpret_cast<std::uint32_t>(flash_end)) {
-        disconnect(kFirmwareUpdaterSocket);
-        close(kFirmwareUpdaterSocket);
-        return;
-      }
+    if (received_size < 0) {
+      return;
+    }
 
-      for (std::size_t i{0u}; i < received_size / 4u; i++) {
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
-                              flash_page_buffer_p[i]) != HAL_OK) {
-          disconnect(kFirmwareUpdaterSocket);
-          close(kFirmwareUpdaterSocket);
-          return;
-        }
-      }
-
-      /* Handle odd received_size, write last byte
-       * This should not happen because of alignment
-       */
-      if (received_size % 2u != 0u) {
-        std::uint32_t last_byte = received_size - 1u;
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
-                              base_address + last_byte,
-                              flash_page_buffer[last_byte]) != HAL_OK) {
-          disconnect(kFirmwareUpdaterSocket);
-          close(kFirmwareUpdaterSocket);
-          return;
-        }
-      }
-
-      base_address += received_size;
-      firmware_updater_size_ += received_size;
-    } else {
-      disconnect(kFirmwareUpdaterSocket);
+    // Overwrite protection
+    if (base_address + received_size >=
+        reinterpret_cast<std::uint32_t>(flash_end)) {
       close(kFirmwareUpdaterSocket);
       return;
     }
 
+    std::size_t iterations = received_size / 4u;
+    for (std::size_t i{0u}; i < iterations || (iterations == 0 && i < 1); i++) {
+      if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
+                            flash_page_buffer_p[i]) != HAL_OK) {
+        close(kFirmwareUpdaterSocket);
+        return;
+      }
+    }
+
+    base_address += received_size;
+    firmware_updater_size_ += received_size;
     getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (getSn_RX_RSR(kFirmwareUpdaterSocket) != 0u ||
+  } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
            status != SOCK_CLOSE_WAIT);
 
   send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);

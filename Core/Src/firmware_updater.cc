@@ -47,20 +47,28 @@ restart_update:
     goto restart_update;
   }
 
+  // Enable TCP keep alive
+  setSn_KPALVTR(Network::kFirmwareUpdaterSocket, 1u);
+
   if (listen(Network::kFirmwareUpdaterSocket) != SOCK_OK) {
     goto restart_update;
   }
 
   std::uint8_t status;
-  do {
+  while (true) {
     getsockopt(Network::kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (status != SOCK_ESTABLISHED);
+    if (status == SOCK_ESTABLISHED) {
+      break;
+    } else if (status == SOCK_CLOSED) {
+      close(Network::kFirmwareUpdaterSocket);
+      goto restart_update;
+    }
+  }
 
   /* The function HAL_FLASH_Unlock() should be called before to unlock the FLASH
    * interface
    */
   if (HAL_FLASH_Unlock() != HAL_OK) {
-    disconnect(Network::kFirmwareUpdaterSocket);
     close(Network::kFirmwareUpdaterSocket);
     goto restart_update;
   }
@@ -72,7 +80,6 @@ restart_update:
       .NbPages = reinterpret_cast<std::uint32_t>(main_program_pages)};
   std::uint32_t PageError;
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
-    disconnect(Network::kFirmwareUpdaterSocket);
     close(Network::kFirmwareUpdaterSocket);
     goto restart_update;
   }
@@ -81,51 +88,37 @@ restart_update:
   std::int32_t received_size;
   std::uint32_t base_address{FLASH_BASE};
   do {
+    // Send dummy packet to generate keep alive
+    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 1u);
+
     std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
     std::uint32_t *flash_page_buffer_p{
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
+
     received_size = recv(Network::kFirmwareUpdaterSocket,
                          flash_page_buffer.data(), FLASH_PAGE_SIZE);
-    if (received_size > 0u) {
-      // Overwrite protection
-      if (base_address + received_size >=
-          reinterpret_cast<std::uint32_t>(firmware_updater_start)) {
-        // At this point no return to main program, need to restart update
-        disconnect(Network::kFirmwareUpdaterSocket);
-        close(Network::kFirmwareUpdaterSocket);
-        goto restart_update;
-      }
+    if (received_size < 0) {
+      goto restart_update;
+    }
 
-      for (std::size_t i{0u}; i < received_size / 4u; i++) {
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
-                              flash_page_buffer_p[i]) != HAL_OK) {
-          disconnect(Network::kFirmwareUpdaterSocket);
-          close(Network::kFirmwareUpdaterSocket);
-          goto restart_update;
-        }
-      }
-
-      /* Handle odd received_size, write last byte
-       * This should not happen because of alignment
-       */
-      if (received_size % 2u != 0u) {
-        std::uint32_t last_byte = received_size - 1u;
-        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
-                              base_address + last_byte,
-                              flash_page_buffer[last_byte]) != HAL_OK) {
-          disconnect(Network::kFirmwareUpdaterSocket);
-          close(Network::kFirmwareUpdaterSocket);
-          goto restart_update;
-        }
-      }
-
-      base_address += received_size;
-    } else {
-      disconnect(Network::kFirmwareUpdaterSocket);
+    // Overwrite protection
+    if (base_address + received_size >=
+        reinterpret_cast<std::uint32_t>(firmware_updater_start)) {
+      // At this point no return to main program, need to restart update
       close(Network::kFirmwareUpdaterSocket);
       goto restart_update;
     }
 
+    std::size_t iterations = received_size / 4u;
+    for (std::size_t i{0u}; i < iterations || (iterations == 0 && i < 1); i++) {
+      if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
+                            flash_page_buffer_p[i]) != HAL_OK) {
+        close(Network::kFirmwareUpdaterSocket);
+        goto restart_update;
+      }
+    }
+
+    base_address += received_size;
     getsockopt(Network::kFirmwareUpdaterSocket, SO_STATUS, &status);
   } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
            status != SOCK_CLOSE_WAIT);
