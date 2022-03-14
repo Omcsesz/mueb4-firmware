@@ -2,7 +2,7 @@
 ENTRY(Firmware_Updater_Handler)
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
+_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 
 /* Main program flash area pages */
 main_program_pages = (64K - LENGTH(FLASH)) / 1K;
@@ -16,8 +16,8 @@ firmware_updater_pages = (ORIGIN(FLASH) + 64K - firmware_updater_start) / 1K;
 /* SPI_HandleTypeDef */
 hspi1 = 0x20000000;
 
-_Min_Heap_Size = 0x200 ;	/* required amount of heap  */
-_Min_Stack_Size = 0x400 ;	/* required amount of stack */
+_Min_Heap_Size = 0x200 ; /* required amount of heap */
+_Min_Stack_Size = 0x400 ; /* required amount of stack */
 
 /* Memories definition */
 MEMORY
@@ -56,12 +56,12 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .ARM.extab   : { 
+  .ARM.extab   : {
     . = ALIGN(4);
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     . = ALIGN(4);
   } >FLASH
-  
+
   .ARM : {
     . = ALIGN(4);
     __exidx_start = .;
@@ -78,7 +78,7 @@ SECTIONS
     PROVIDE_HIDDEN (__preinit_array_end = .);
     . = ALIGN(4);
   } >FLASH
-  
+
   .init_array :
   {
     . = ALIGN(4);
@@ -88,7 +88,7 @@ SECTIONS
     PROVIDE_HIDDEN (__init_array_end = .);
     . = ALIGN(4);
   } >FLASH
-  
+
   .fini_array :
   {
     . = ALIGN(4);
@@ -103,18 +103,18 @@ SECTIONS
   _sidata = LOADADDR(.data);
 
   /* Initialized data sections into "RAM" Ram type memory */
-  .data : 
+  .data :
   {
     . = ALIGN(4);
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
     *(.RamFunc)        /* .RamFunc sections */
-    *(.RamFunc*)       /* .RamFunc* sections */    
+    *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
-    
+
   } >RAM AT> FLASH
 
   /* Uninitialized data section into "RAM" Ram type memory */

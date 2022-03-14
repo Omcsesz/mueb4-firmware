@@ -1,5 +1,5 @@
 /*
- ******************************************************************************
+******************************************************************************
 **
 ** @file        : LinkerScript.ld
 **
@@ -19,25 +19,24 @@
 **  Distribution: The file is distributed as is, without any warranty
 **                of any kind.
 **
- ******************************************************************************
+******************************************************************************
 ** @attention
 **
-** <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-** All rights reserved.</center></h2>
+** Copyright (c) 2022 STMicroelectronics.
+** All rights reserved.
 **
-** This software component is licensed by ST under BSD 3-Clause license,
-** the "License"; You may not use this file except in compliance with the
-** License. You may obtain a copy of the License at:
-**                        opensource.org/licenses/BSD-3-Clause
+** This software is licensed under terms that can be found in the LICENSE file
+** in the root directory of this software component.
+** If no LICENSE file comes with this software, it is provided AS-IS.
 **
- ******************************************************************************
- */
+******************************************************************************
+*/
 
 /* Entry Point */
 ENTRY(Reset_Handler)
 
 /* Highest address of the user mode stack */
-_estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
+_estack = ORIGIN(RAM) + LENGTH(RAM); /* end of "RAM" Ram type memory */
 
 /* End of flash */
 flash_end = ORIGIN(FLASH) + 64K;
@@ -48,8 +47,8 @@ firmware_updater_start = ORIGIN(FLASH) + LENGTH(FLASH);
 /* Firmware updater flash area pages */
 firmware_updater_pages = (flash_end - firmware_updater_start) / 1K;
 
-_Min_Heap_Size = 0x200 ;	/* required amount of heap  */
-_Min_Stack_Size = 0x400 ;	/* required amount of stack */
+_Min_Heap_Size = 0x200 ; /* required amount of heap */
+_Min_Stack_Size = 0x400 ; /* required amount of stack */
 
 /* Memories definition */
 MEMORY
@@ -95,12 +94,12 @@ SECTIONS
     . = ALIGN(4);
   } >FLASH
 
-  .ARM.extab   : { 
+  .ARM.extab   : {
     . = ALIGN(4);
     *(.ARM.extab* .gnu.linkonce.armextab.*)
     . = ALIGN(4);
   } >FLASH
-  
+
   .ARM : {
     . = ALIGN(4);
     __exidx_start = .;
@@ -117,7 +116,7 @@ SECTIONS
     PROVIDE_HIDDEN (__preinit_array_end = .);
     . = ALIGN(4);
   } >FLASH
-  
+
   .init_array :
   {
     . = ALIGN(4);
@@ -127,7 +126,7 @@ SECTIONS
     PROVIDE_HIDDEN (__init_array_end = .);
     . = ALIGN(4);
   } >FLASH
-  
+
   .fini_array :
   {
     . = ALIGN(4);
@@ -137,31 +136,28 @@ SECTIONS
     PROVIDE_HIDDEN (__fini_array_end = .);
     . = ALIGN(4);
   } >FLASH
-  
+
   /* Uninitialized data section into "RAM" Ram type memory */
   .bss :
   {
     /* This is used by the startup in order to initialize the .bss section */
     _sbss = .;         /* define a global symbol at bss start */
     __bss_start__ = _sbss;
-    
-    /* Fix SPI_HandleTypeDef hspi1 symbol location, it is used by firmware updater */
-    *spi.o(COMMON)
-    *(COMMON)
+    *(.bss.hspi1)
     *(.bss)
     *(.bss*)
+    *(COMMON)
 
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
   } >RAM
-
+  
   /* Used by the startup to initialize data */
-  _sidata = LOADADDR(.data);
+  _sidata = LOADADDR(.data);  
 
   /* Initialized data sections into "RAM" Ram type memory */
-  . = ALIGN(4);
-  .data : 
+  .data :
   {
     . = ALIGN(4);
     _sdata = .;        /* create a global symbol at data start */
@@ -172,13 +168,8 @@ SECTIONS
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */
-    
+
   } >RAM AT> FLASH
-  
-  /* Calculate main program flash size */
-  ._main_program : {
-  	main_program_size = . - 0x8000000;
-  } >FLASH
 
   /* User_heap_stack section, used to check that there is enough "RAM" Ram  type memory left */
   ._user_heap_stack :
@@ -200,4 +191,9 @@ SECTIONS
   }
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
+  
+  /* Calculate main program flash size */
+  ._main_program : {
+  	main_program_size = . - 0x8000000;
+  } >FLASH
 }
