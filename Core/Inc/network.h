@@ -64,16 +64,10 @@ class Network final {
   static void IpConflict();
 
  private:
-  static constexpr std::uint16_t kMtu{1500u};
-
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 
-  /// Animation socket port number.
-  static constexpr std::uint16_t kAnimationSocketPort{50001u};
-
-  /// Expected animation protocol packet size.
-  static constexpr std::uint16_t kAnimationProtocolSize{1250u};
+  static constexpr std::uint16_t kE131ProtocolMaxSize{638u};
 
   /// EUI-48 MAC start address.
   static constexpr std::uint16_t kEui48MacStartAddress{0xFAu};
@@ -88,10 +82,7 @@ class Network final {
   static constexpr std::uint8_t kCommandSocket{1u};
 
   /// Animation socket number.
-  static constexpr std::uint8_t kAnimationSocket{2u};
-
-  /// Currently supported animation protocol version number.
-  static constexpr std::uint8_t kAnimationProtocolVersion{2u};
+  static constexpr std::uint8_t kE131Socket{2u};
 
   static constexpr std::uint8_t kCommandProtocolMaxSize{57u};
 
@@ -103,7 +94,7 @@ class Network final {
   CheckIpAddress(const std::uint8_t &socket_number);
 
   /// Handles animation protocol.
-  void HandleAnimationProtocol();
+  void HandleE131Protocol();
 
   /**
    * Handles remote command.
@@ -118,11 +109,6 @@ class Network final {
    * @note 1 KB should be enough for DHCP RX buffer.
    */
   std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
-
-  static constexpr std::array<std::uint8_t, 6> kMulticastHardwareAddress_{
-      0x01u, 0x00u, 0x5eu, 0x06u, 0x00u, 0x01u};
-  static constexpr std::array<std::uint8_t, 4> kMulticastAddress_{239u, 6u, 0u,
-                                                                  1u};
 
   std::uint16_t firmware_updater_size_{0u};
 

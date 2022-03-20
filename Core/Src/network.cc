@@ -17,6 +17,7 @@
 #include <tuple>
 
 #include "crc.h"
+#include "e131.h"
 #include "gpio.h"
 #include "i2c.h"
 #include "main.h"
@@ -76,9 +77,9 @@ void Network::Step() {
       HandleCommandProtocol();
     }
 
-    if (getSn_RX_RSR(kAnimationSocket) > 0u && net_info.ip[2] != 0u &&
+    if (getSn_RX_RSR(kE131Socket) > 0u && net_info.ip[2] != 0u &&
         net_info.ip[3] != 0u) {
-      HandleAnimationProtocol();
+      HandleE131Protocol();
     }
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
@@ -91,21 +92,37 @@ void Network::UpdateIp() {
   wizchip_getnetinfo(&net_info);
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 
-  auto level_number{static_cast<std::uint8_t>(18u - net_info.ip[2])};
-  auto room_number{static_cast<std::uint8_t>(net_info.ip[3] - 5u)};
-  animation_buffer_offset_ =
-      static_cast<std::uint16_t>((level_number * 96u + room_number * 6u) + 2u);
+  std::uint8_t level_number = 18u - net_info.ip[2];
+  std::uint8_t room_number = net_info.ip[3] - 5u;
+  std::uint8_t multicast_number = ((level_number * 8u + room_number) / 16u) + 1;
+
+  std::array<std::uint8_t, 4> multicast_address{239u, 255u, 0u,
+                                                multicast_number};
+  std::array<std::uint8_t, 6> multicast_hardware_address{
+      0x01u, 0x00u, 0x5eu, 0x7fu, 0x00u, multicast_number};
+
+  // Configure multicast, IGMPv2
+  setSn_DHAR(kE131Socket,
+             const_cast<std::uint8_t *>(multicast_hardware_address.data()));
+  setSn_DIPR(kE131Socket, const_cast<std::uint8_t *>(multicast_address.data()));
+  setSn_DPORT(kE131Socket, ACN_SDT_MULTICAST_PORT);
+
+  animation_buffer_offset_ = static_cast<std::uint16_t>(
+      ((level_number * 192u + room_number * 12u) % 384u) + 1u);
 }
 
 void Network::IpAssign() {
   default_ip_assign();
   UpdateIp();
-  socket(kAnimationSocket, Sn_MR_UDP, kAnimationSocketPort, SF_MULTI_ENABLE);
+
+  socket(kE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_MULTI_ENABLE);
 }
 
 void Network::IpUpdate() {
   default_ip_update();
   UpdateIp();
+
+  socket(kE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_MULTI_ENABLE);
 }
 
 void Network::IpConflict() {
@@ -151,13 +168,6 @@ Network::Network() {
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
-
-  // Configure multicast, IGMPv2
-  setSn_DHAR(kAnimationSocket,
-             const_cast<std::uint8_t *>(kMulticastHardwareAddress_.data()));
-  setSn_DIPR(kAnimationSocket,
-             const_cast<std::uint8_t *>(kMulticastAddress_.data()));
-  setSn_DPORT(kAnimationSocket, kAnimationSocketPort)
 }
 
 template <std::size_t N>
@@ -180,44 +190,63 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return std::make_tuple(size, std::move(buffer), server_address, server_port);
 }
 
-void Network::HandleAnimationProtocol() {
+void Network::HandleE131Protocol() {
   auto [size, buffer, server_address,
-        server_port]{CheckIpAddress<kMtu>(kAnimationSocket)};
-  // Handle too small and incorrect packages
-  if (buffer[0] != kAnimationProtocolVersion ||
-      (buffer[0] == kAnimationProtocolVersion &&
-       size < kAnimationProtocolSize)) {
+        server_port]{CheckIpAddress<kE131ProtocolMaxSize>(kE131Socket)};
+  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
+  Panel::SetInternalAnimation(false);
+
+  auto e131Packet = (E131Packet *)buffer.data();
+  if (e131Packet->root_layer.preamble_size != 0x0010u ||
+      e131Packet->root_layer.post_amble_size != 0 ||
+      e131Packet->root_layer.acn_packet_identifier != kAcn_packet_identifier ||
+      (e131Packet->root_layer.vector != VECTOR_ROOT_E131_DATA &&
+       e131Packet->root_layer.vector != VECTOR_ROOT_E131_EXTENDED) ||
+      e131Packet->framing_layer.priority > 200u ||
+      (e131Packet->framing_layer.options & 0x80u) == 0x80u ||
+      (e131Packet->framing_layer.options & 0x40u) == 0x40u ||
+      e131Packet->framing_layer.universe == 0u ||
+      e131Packet->framing_layer.universe > 63999u ||
+      e131Packet->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
+      e131Packet->framing_layer.vector != VECTOR_E131_EXTENDED_DISCOVERY) {
     return;
   }
 
-  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
+  if (e131Packet->root_layer.vector == VECTOR_ROOT_E131_DATA) {
+    if (e131Packet->framing_layer.vector == VECTOR_E131_DATA_PACKET) {
+      if (e131Packet->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
+          e131Packet->dmp_layer.address_type_and_data_type != 0xa1u ||
+          e131Packet->dmp_layer.first_property_address != 0x0000u ||
+          e131Packet->dmp_layer.address_increment != 0x0001u ||
+          e131Packet->dmp_layer.property_value_count > 513u ||
+          e131Packet->dmp_layer.property_value_count < 385u) {
+        return;
+      }
 
-  Panel::SetInternalAnimation(false);
+      auto property_begin{e131Packet->dmp_layer.property_values.data() +
+                          animation_buffer_offset_};
+      Panel::ColorData colors{};
+      auto colors_begin{colors.begin()};
 
-  auto buffer_begin{buffer.begin() + animation_buffer_offset_};
-  Panel::ColorData colors{};
-  auto colors_begin{colors.begin()};
+      for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
+        if (bytes == 6u || bytes == 18u) {
+          // Jump to next row
+          i = i - 6u + 96u;
+        } else if (bytes == 12u) {
+          // Send left panel data
+          Panel::GetPanel(Panel::Side::LEFT).SendColorData(colors);
+          i -= 96u;
+          colors_begin = colors.begin();
+        } else if (bytes == 24u) {
+          // Send right panel data
+          Panel::GetPanel(Panel::Side::RIGHT).SendColorData(colors);
+          break;
+        }
 
-  for (auto [i, bytes] = std::tuple(buffer_begin, 0u);; i++, bytes++) {
-    if (bytes == 3u || bytes == 9u) {
-      // Jump to next row
-      i = i - 3u + 48u;
-    } else if (bytes == 6u) {
-      // Send left panel data
-      Panel::GetPanel(Panel::Side::LEFT).SendColorData(colors);
-      i -= 48u;
-      colors_begin = colors.begin();
-    } else if (bytes == 12u) {
-      // Send right panel data
-      Panel::GetPanel(Panel::Side::RIGHT).SendColorData(colors);
-      break;
+        *colors_begin = (*i * 15u + 135u) >> 8u;
+        colors_begin++;
+      }
     }
-
-    // Uncompress 2 color data from 1 byte into 2 bytes
-    *colors_begin = (*i & 0xF0u) >> 4u;
-    colors_begin++;
-    *colors_begin = *i & 0x0Fu;
-    colors_begin++;
   }
 }
 

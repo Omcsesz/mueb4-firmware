@@ -98,8 +98,7 @@ void Panel::SendColorData(const ColorData& colorData) {
     return;
   }
 
-  // NOLINTNEXTLINE
-  for (std::uint8_t i{0u}; i < colorData.size(); i++) {
+  for (auto i{0u}; i < colorData.size(); i++) {
     color_data_[i + 1u] =
         static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x0Fu));
   }
