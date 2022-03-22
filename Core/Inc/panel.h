@@ -94,12 +94,14 @@ class Panel final {
 
   static void DisableAll();
 
+  static void SendColorDataAll();
+
   static void SendWhiteBalanceToAll(const WhiteBalanceData& white_balance);
 
   /// Send white balance data to panel.
   void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
-  void SendColorData(const ColorData& colorData);
+  Panel SetColorData(const ColorData& colorData);
 
   void Heartbeat();
 
@@ -137,6 +139,8 @@ class Panel final {
   void Blank();
 
   void Disable();
+
+  void SendColorData();
 
   static std::array<std::uint32_t, 2u> adc_;
 

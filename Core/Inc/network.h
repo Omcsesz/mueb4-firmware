@@ -44,7 +44,7 @@ class Network final {
   static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
 
   /// Firmware updater Socket number.
-  static constexpr std::uint8_t kFirmwareUpdaterSocket{3u};
+  static constexpr std::uint8_t kFirmwareUpdaterSocket{2u};
 
   Network(const Network &) = delete;
   Network &operator=(const Network &) = delete;
@@ -67,7 +67,9 @@ class Network final {
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 
-  static constexpr std::uint16_t kE131ProtocolMaxSize{638u};
+  static constexpr std::uint16_t kE131DataPacketMaxSize{638u};
+
+  static constexpr std::uint16_t kE131SyncPacketMaxSize{49u};
 
   /// EUI-48 MAC start address.
   static constexpr std::uint16_t kEui48MacStartAddress{0xFAu};
@@ -82,11 +84,19 @@ class Network final {
   static constexpr std::uint8_t kCommandSocket{1u};
 
   /// Animation socket number.
-  static constexpr std::uint8_t kE131Socket{2u};
+  static constexpr std::uint8_t kMulticastE131Socket{3u};
+
+  static constexpr std::uint8_t kUnicastE131Socket{4u};
+
+  static constexpr std::uint8_t kSyncE131Socket{5u};
 
   static constexpr std::uint8_t kCommandProtocolMaxSize{57u};
 
   Network();
+
+  static void OpenMulticastSocket(std::uint8_t socket_number,
+                                  std::uint8_t third_octet,
+                                  std::uint8_t last_octet);
 
   template <std::size_t N>
   std::tuple<std::int32_t, std::array<std::uint8_t, N>,
@@ -94,7 +104,9 @@ class Network final {
   CheckIpAddress(const std::uint8_t &socket_number);
 
   /// Handles animation protocol.
-  void HandleE131Protocol();
+  void HandleE131DataPacket(bool unicast);
+
+  void HandleE131SyncPacket();
 
   /**
    * Handles remote command.
@@ -113,6 +125,14 @@ class Network final {
   std::uint16_t firmware_updater_size_{0u};
 
   std::uint16_t animation_buffer_offset_{0u};
+
+  std::uint16_t synchronization_address_{0u};
+
+  std::uint8_t data_sequence_number_{0u};
+
+  std::uint8_t sync_sequence_number_{0u};
+
+  bool synced_{false};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_

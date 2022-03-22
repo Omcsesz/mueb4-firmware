@@ -77,15 +77,41 @@ void Network::Step() {
       HandleCommandProtocol();
     }
 
-    if (getSn_RX_RSR(kE131Socket) > 0u && net_info.ip[2] != 0u &&
-        net_info.ip[3] != 0u) {
-      HandleE131Protocol();
+    if (net_info.ip[2] != 0u && net_info.ip[3] != 0u) {
+      if (getSn_RX_RSR(kMulticastE131Socket) > 0u) {
+        HandleE131DataPacket(false);
+      } else if (getSn_RX_RSR(kUnicastE131Socket) > 0u) {
+        HandleE131DataPacket(true);
+      }
+
+      if (getSn_RX_RSR(kSyncE131Socket) > 0u) {
+        HandleE131SyncPacket();
+      }
     }
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
     DhcpRebind();
   }
+}
+
+void Network::OpenMulticastSocket(std::uint8_t socket_number,
+                                  std::uint8_t third_octet,
+                                  std::uint8_t last_octet) {
+  std::array<std::uint8_t, 4> multicast_address{239u, 255u, third_octet,
+                                                last_octet};
+  std::array<std::uint8_t, 6> multicast_hardware_address{
+      0x01u, 0x00u, 0x5eu, 0x7fu, third_octet, last_octet};
+
+  // Configure multicast, IGMPv2
+  setSn_DHAR(socket_number,
+             const_cast<std::uint8_t *>(multicast_hardware_address.data()));
+  setSn_DIPR(socket_number,
+             const_cast<std::uint8_t *>(multicast_address.data()));
+  setSn_DPORT(socket_number, ACN_SDT_MULTICAST_PORT);
+
+  socket(socket_number, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT,
+         SF_MULTI_ENABLE | SF_BROAD_BLOCK | SF_UNI_BLOCK);
 }
 
 void Network::UpdateIp() {
@@ -96,33 +122,19 @@ void Network::UpdateIp() {
   std::uint8_t room_number = net_info.ip[3] - 5u;
   std::uint8_t multicast_number = ((level_number * 8u + room_number) / 16u) + 1;
 
-  std::array<std::uint8_t, 4> multicast_address{239u, 255u, 0u,
-                                                multicast_number};
-  std::array<std::uint8_t, 6> multicast_hardware_address{
-      0x01u, 0x00u, 0x5eu, 0x7fu, 0x00u, multicast_number};
+  animation_buffer_offset_ = (level_number * 192u + room_number * 12u) % 384u;
 
-  // Configure multicast, IGMPv2
-  setSn_DHAR(kE131Socket,
-             const_cast<std::uint8_t *>(multicast_hardware_address.data()));
-  setSn_DIPR(kE131Socket, const_cast<std::uint8_t *>(multicast_address.data()));
-  setSn_DPORT(kE131Socket, ACN_SDT_MULTICAST_PORT);
-
-  animation_buffer_offset_ = static_cast<std::uint16_t>(
-      ((level_number * 192u + room_number * 12u) % 384u) + 1u);
+  OpenMulticastSocket(kMulticastE131Socket, 0u, multicast_number);
 }
 
 void Network::IpAssign() {
   default_ip_assign();
   UpdateIp();
-
-  socket(kE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_MULTI_ENABLE);
 }
 
 void Network::IpUpdate() {
   default_ip_update();
   UpdateIp();
-
-  socket(kE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_MULTI_ENABLE);
 }
 
 void Network::IpConflict() {
@@ -148,9 +160,10 @@ Network::Network() {
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
   reg_dhcp_cbfunc(CIpAssign, CIpUpdate, CIpConflict);
 
-  // DHCP, command protocol, broadcast protocol, firmware socket rx/tx sizes
-  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u};
-  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 8u};
+  // DHCP, command protocol, firmware socket, E131 unicast, e131 multicast rx/tx
+  // sizes
+  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u, 1u};
+  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 2u, 2u};
   // This includes soft reset
   wizchip_init(txsize.data(), rxsize.data());
 
@@ -168,6 +181,7 @@ Network::Network() {
   DHCP_init(kDhcpSocket, dhcp_rx_buffer_.data());
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
+  socket(kUnicastE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_BROAD_BLOCK);
 }
 
 template <std::size_t N>
@@ -190,64 +204,141 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return std::make_tuple(size, std::move(buffer), server_address, server_port);
 }
 
-void Network::HandleE131Protocol() {
+void Network::HandleE131DataPacket(bool unicast) {
   auto [size, buffer, server_address,
-        server_port]{CheckIpAddress<kE131ProtocolMaxSize>(kE131Socket)};
-  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
-  Panel::SetInternalAnimation(false);
-
-  auto e131Packet = (E131Packet *)buffer.data();
-  if (e131Packet->root_layer.preamble_size != 0x0010u ||
-      e131Packet->root_layer.post_amble_size != 0 ||
-      e131Packet->root_layer.acn_packet_identifier != kAcn_packet_identifier ||
-      (e131Packet->root_layer.vector != VECTOR_ROOT_E131_DATA &&
-       e131Packet->root_layer.vector != VECTOR_ROOT_E131_EXTENDED) ||
-      e131Packet->framing_layer.priority > 200u ||
-      (e131Packet->framing_layer.options & 0x80u) == 0x80u ||
-      (e131Packet->framing_layer.options & 0x40u) == 0x40u ||
-      e131Packet->framing_layer.universe == 0u ||
-      e131Packet->framing_layer.universe > 63999u ||
-      e131Packet->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
-      e131Packet->framing_layer.vector != VECTOR_E131_EXTENDED_DISCOVERY) {
+        server_port]{CheckIpAddress<kE131DataPacketMaxSize>(
+      (unicast) ? kUnicastE131Socket : kMulticastE131Socket)};
+  if (size <= 0) {
     return;
   }
 
-  if (e131Packet->root_layer.vector == VECTOR_ROOT_E131_DATA) {
-    if (e131Packet->framing_layer.vector == VECTOR_E131_DATA_PACKET) {
-      if (e131Packet->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
-          e131Packet->dmp_layer.address_type_and_data_type != 0xa1u ||
-          e131Packet->dmp_layer.first_property_address != 0x0000u ||
-          e131Packet->dmp_layer.address_increment != 0x0001u ||
-          e131Packet->dmp_layer.property_value_count > 513u ||
-          e131Packet->dmp_layer.property_value_count < 385u) {
-        return;
+  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
+  Panel::SetInternalAnimation(false);
+
+  auto e131DataPacket = (E131DataPacket *)buffer.data();
+  if (e131DataPacket->root_layer.preamble_size != 0x0010u ||
+      e131DataPacket->root_layer.post_amble_size != 0 ||
+      e131DataPacket->root_layer.acn_packet_identifier !=
+          kAcn_packet_identifier ||
+      e131DataPacket->root_layer.vector != VECTOR_ROOT_E131_DATA &&
+          e131DataPacket->root_layer.vector != VECTOR_ROOT_E131_EXTENDED) {
+    return;
+  }
+
+  if (e131DataPacket->root_layer.vector == VECTOR_ROOT_E131_DATA) {
+    const auto stream_terminated =
+        e131DataPacket->framing_layer.options & 0x40u;
+    if (e131DataPacket->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
+        e131DataPacket->framing_layer.options & 0x80u || stream_terminated ||
+        e131DataPacket->framing_layer.priority > 200u ||
+        e131DataPacket->framing_layer.universe == 0u ||
+        e131DataPacket->framing_layer.universe > 63999u ||
+        e131DataPacket->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
+        e131DataPacket->dmp_layer.address_type_and_data_type != 0xa1u ||
+        e131DataPacket->dmp_layer.first_property_address != 0x0000u ||
+        e131DataPacket->dmp_layer.address_increment != 0x0001u ||
+        e131DataPacket->dmp_layer.property_value_count > 513u ||
+        (!unicast && e131DataPacket->dmp_layer.property_value_count < 385u) ||
+        (unicast && e131DataPacket->dmp_layer.property_value_count < 24u)) {
+      if (stream_terminated) {
+        Panel::BlankAll();
       }
 
-      auto property_begin{e131Packet->dmp_layer.property_values.data() +
-                          animation_buffer_offset_};
-      Panel::ColorData colors{};
-      auto colors_begin{colors.begin()};
+      return;
+    }
 
-      for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
-        if (bytes == 6u || bytes == 18u) {
-          // Jump to next row
-          i = i - 6u + 96u;
-        } else if (bytes == 12u) {
-          // Send left panel data
-          Panel::GetPanel(Panel::Side::LEFT).SendColorData(colors);
+    auto sequence_number =
+        e131DataPacket->framing_layer.sequence_number - data_sequence_number_;
+    if (sequence_number <= 0 && sequence_number > -20) {
+      return;
+    }
+    data_sequence_number_ = e131DataPacket->framing_layer.sequence_number;
+
+    if (!synced_ && synchronization_address_ ==
+                        e131DataPacket->framing_layer.synchronization_address) {
+      return;
+    }
+
+    if (e131DataPacket->framing_layer.synchronization_address != 0u) {
+      auto lowByte = static_cast<std::uint8_t>(
+          e131DataPacket->framing_layer.synchronization_address & 0x00FFu);
+      auto highByte = static_cast<std::uint8_t>(
+          e131DataPacket->framing_layer.synchronization_address & 0xFF00u >> 8);
+
+      OpenMulticastSocket(kSyncE131Socket, highByte, lowByte);
+      synced_ = false;
+    } else if (e131DataPacket->framing_layer.synchronization_address == 0u) {
+      synced_ = false;
+      close(kSyncE131Socket);
+    }
+    synchronization_address_ =
+        e131DataPacket->framing_layer.synchronization_address;
+
+    Panel::ColorData colors{};
+    auto colors_begin{colors.begin()};
+    auto property_begin{e131DataPacket->dmp_layer.property_values.data() + 1};
+
+    if (!unicast) {
+      property_begin += animation_buffer_offset_;
+    }
+
+    for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
+      if (!unicast && (bytes == 6u || bytes == 18u)) {
+        // Jump to next row
+        i = i - 6u + 96u;
+      }
+
+      if (bytes == 12u) {
+        // Set left panel data
+        Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
+
+        if (!unicast) {
           i -= 96u;
-          colors_begin = colors.begin();
-        } else if (bytes == 24u) {
-          // Send right panel data
-          Panel::GetPanel(Panel::Side::RIGHT).SendColorData(colors);
-          break;
         }
 
-        *colors_begin = (*i * 15u + 135u) >> 8u;
-        colors_begin++;
+        colors_begin = colors.begin();
+      } else if (bytes == 24u) {
+        // Set right panel data
+        Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
+        break;
       }
+
+      *colors_begin = (*i * 15u + 135u) >> 8u;
+      colors_begin++;
     }
   }
+}
+
+void Network::HandleE131SyncPacket() {
+  auto [size, buffer, server_address,
+        server_port]{CheckIpAddress<kE131SyncPacketMaxSize>(kSyncE131Socket)};
+  if (size <= 0) {
+    return;
+  }
+
+  auto e131SyncPacket = (E131SyncPacket *)buffer.data();
+  if (e131SyncPacket->root_layer.preamble_size != 0x0010u ||
+      e131SyncPacket->root_layer.post_amble_size != 0 ||
+      e131SyncPacket->root_layer.acn_packet_identifier !=
+          kAcn_packet_identifier ||
+      e131SyncPacket->root_layer.vector != VECTOR_ROOT_E131_EXTENDED ||
+      e131SyncPacket->framing_layer.vector !=
+          VECTOR_E131_EXTENDED_SYNCHRONIZATION ||
+      e131SyncPacket->framing_layer.synchronization_address !=
+          synchronization_address_ ||
+      e131SyncPacket->framing_layer.synchronization_address == 0u) {
+    return;
+  }
+
+  auto sequence_number =
+      e131SyncPacket->framing_layer.sequence_number - sync_sequence_number_;
+  if (sequence_number <= 0 && sequence_number > -20) {
+    return;
+  }
+  data_sequence_number_ = e131SyncPacket->framing_layer.sequence_number;
+
+  Panel::SendColorDataAll();
+  synced_ = true;
 }
 
 void Network::HandleCommandProtocol() {

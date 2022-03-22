@@ -76,6 +76,11 @@ void Panel::DisableAll() {
   Panel::right_panel().Disable();
 }
 
+void Panel::SendColorDataAll() {
+  Panel::left_panel().SendColorData();
+  Panel::right_panel().SendColorData();
+}
+
 void Panel::SendWhiteBalanceToAll(
     const Panel::WhiteBalanceData& white_balance) {
   Panel::left_panel().SendWhiteBalance(white_balance);
@@ -93,17 +98,11 @@ void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
                         white_balance_data_.size());
 }
 
-void Panel::SendColorData(const ColorData& colorData) {
-  if (state_ < State::kVcc12vOn) {
-    return;
-  }
-
+Panel Panel::SetColorData(const ColorData& colorData) {
   for (auto i{0u}; i < colorData.size(); i++) {
     color_data_[i + 1u] =
         static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x0Fu));
   }
-
-  HAL_UART_Transmit_DMA(huartx_, color_data_.data(), color_data_.size());
 }
 
 void Panel::Heartbeat() {
@@ -177,8 +176,8 @@ void Panel::StepInternalAnimation() {
     }
   }
 
-  Panel::left_panel().SendColorData(colors);
-  Panel::right_panel().SendColorData(colors);
+  Panel::left_panel().SetColorData(colors).SendColorData();
+  Panel::right_panel().SetColorData(colors).SendColorData();
 
   color++;
   if (color == 16u) {
@@ -279,7 +278,7 @@ void Panel::Step() {
   }
 }
 
-void Panel::Blank() { SendColorData(Panel::ColorData{}); }
+void Panel::Blank() { SetColorData(Panel::ColorData{}).SendColorData(); }
 
 void Panel::Disable() {
   HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
@@ -292,4 +291,12 @@ void Panel::Disable() {
   state_ = State::kDisabled;
   tick_1s_ = 0u;
   active_ = false;
+}
+
+void Panel::SendColorData() {
+  if (state_ < State::kVcc12vOn) {
+    return;
+  }
+
+  HAL_UART_Transmit_DMA(huartx_, color_data_.data(), color_data_.size());
 }
