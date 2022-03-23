@@ -101,7 +101,7 @@ class Panel final {
   /// Send white balance data to panel.
   void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
-  Panel SetColorData(const ColorData& colorData);
+  Panel& SetColorData(const ColorData& colorData);
 
   void Heartbeat();
 

@@ -46,7 +46,7 @@ else ()
 endif ()
 
 include_directories(${includes})
-include_directories(boost)
+include_directories(../boost)
 
 add_definitions(${defines})
 

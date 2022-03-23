@@ -78,14 +78,14 @@ void Network::Step() {
     }
 
     if (net_info.ip[2] != 0u && net_info.ip[3] != 0u) {
+      if (getSn_RX_RSR(kSyncE131Socket) > 0u) {
+        HandleE131SyncPacket();
+      }
+
       if (getSn_RX_RSR(kMulticastE131Socket) > 0u) {
         HandleE131DataPacket(false);
       } else if (getSn_RX_RSR(kUnicastE131Socket) > 0u) {
         HandleE131DataPacket(true);
-      }
-
-      if (getSn_RX_RSR(kSyncE131Socket) > 0u) {
-        HandleE131SyncPacket();
       }
     }
   } else {
@@ -136,6 +136,8 @@ void Network::IpUpdate() {
   default_ip_update();
   UpdateIp();
 }
+
+void Network::E131NetworkDataLossTimeout() { synced_ = false; }
 
 void Network::IpConflict() {
   default_ip_conflict();
@@ -217,95 +219,101 @@ void Network::HandleE131DataPacket(bool unicast) {
 
   auto e131DataPacket = (E131DataPacket *)buffer.data();
   if (e131DataPacket->root_layer.preamble_size != 0x0010u ||
-      e131DataPacket->root_layer.post_amble_size != 0 ||
+      e131DataPacket->root_layer.post_amble_size != 0x0000u ||
       e131DataPacket->root_layer.acn_packet_identifier !=
           kAcn_packet_identifier ||
-      e131DataPacket->root_layer.vector != VECTOR_ROOT_E131_DATA &&
-          e131DataPacket->root_layer.vector != VECTOR_ROOT_E131_EXTENDED) {
+      e131DataPacket->root_layer.vector != VECTOR_ROOT_E131_DATA) {
     return;
   }
 
-  if (e131DataPacket->root_layer.vector == VECTOR_ROOT_E131_DATA) {
-    const auto stream_terminated =
-        e131DataPacket->framing_layer.options & 0x40u;
-    if (e131DataPacket->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
-        e131DataPacket->framing_layer.options & 0x80u || stream_terminated ||
-        e131DataPacket->framing_layer.priority > 200u ||
-        e131DataPacket->framing_layer.universe == 0u ||
-        e131DataPacket->framing_layer.universe > 63999u ||
-        e131DataPacket->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
-        e131DataPacket->dmp_layer.address_type_and_data_type != 0xa1u ||
-        e131DataPacket->dmp_layer.first_property_address != 0x0000u ||
-        e131DataPacket->dmp_layer.address_increment != 0x0001u ||
-        e131DataPacket->dmp_layer.property_value_count > 513u ||
-        (!unicast && e131DataPacket->dmp_layer.property_value_count < 385u) ||
-        (unicast && e131DataPacket->dmp_layer.property_value_count < 24u)) {
-      if (stream_terminated) {
-        Panel::BlankAll();
+  const auto stream_terminated = e131DataPacket->framing_layer.options & 0x40u;
+  const auto force_synchronization =
+      e131DataPacket->framing_layer.options & 0x20u;
+  const auto sequence_number =
+      e131DataPacket->framing_layer.sequence_number - data_sequence_number_;
+  if (e131DataPacket->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
+      (sequence_number <= 0 && sequence_number > -20) ||
+      e131DataPacket->framing_layer.universe == 0u ||
+      e131DataPacket->framing_layer.universe > 63999u ||
+      e131DataPacket->framing_layer.priority > 200u ||
+      e131DataPacket->framing_layer.options & 0x80u || stream_terminated ||
+      (!force_synchronization_ && !synced_) ||
+      e131DataPacket->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
+      e131DataPacket->dmp_layer.address_type_and_data_type != 0xa1u ||
+      e131DataPacket->dmp_layer.first_property_address != 0x0000u ||
+      e131DataPacket->dmp_layer.address_increment != 0x0001u ||
+      e131DataPacket->dmp_layer.property_value_count > 513u ||
+      (!unicast && e131DataPacket->dmp_layer.property_value_count < 385u) ||
+      (unicast && e131DataPacket->dmp_layer.property_value_count < 24u)) {
+    if (stream_terminated) {
+      Panel::BlankAll();
+    }
+
+    return;
+  }
+  force_synchronization_ = force_synchronization;
+  data_sequence_number_ = e131DataPacket->framing_layer.sequence_number;
+
+  if ((synchronization_address_ != 0u && !synced_ &&
+       synchronization_address_ ==
+           e131DataPacket->framing_layer.synchronization_address) ||
+      synchronization_address_ !=
+          e131DataPacket->framing_layer.synchronization_address) {
+    return;
+  }
+
+  if (e131DataPacket->framing_layer.synchronization_address != 0u) {
+    close(kSyncE131Socket);
+
+    auto lowByte = static_cast<std::uint8_t>(
+        e131DataPacket->framing_layer.synchronization_address & 0x00FFu);
+    auto highByte = static_cast<std::uint8_t>(
+        e131DataPacket->framing_layer.synchronization_address & 0xFF00u >> 8);
+
+    OpenMulticastSocket(kSyncE131Socket, highByte, lowByte);
+    synced_ = false;
+  } else if (e131DataPacket->framing_layer.synchronization_address == 0u) {
+    synced_ = true;
+    close(kSyncE131Socket);
+  }
+  synchronization_address_ =
+      e131DataPacket->framing_layer.synchronization_address;
+
+  Panel::ColorData colors{};
+  auto colors_begin{colors.begin()};
+  auto property_begin{e131DataPacket->dmp_layer.property_values.data() + 1};
+
+  if (!unicast) {
+    property_begin += animation_buffer_offset_;
+  }
+
+  for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
+    if (!unicast && (bytes == 6u || bytes == 18u)) {
+      // Jump to next row
+      i = i - 6u + 96u;
+    }
+
+    if (bytes == 12u) {
+      // Set left panel data
+      Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
+
+      if (!unicast) {
+        i -= 96u;
       }
 
-      return;
+      colors_begin = colors.begin();
+    } else if (bytes == 24u) {
+      // Set right panel data
+      Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
+      break;
     }
 
-    auto sequence_number =
-        e131DataPacket->framing_layer.sequence_number - data_sequence_number_;
-    if (sequence_number <= 0 && sequence_number > -20) {
-      return;
-    }
-    data_sequence_number_ = e131DataPacket->framing_layer.sequence_number;
+    *colors_begin = (*i * 15u + 135u) >> 8u;
+    colors_begin++;
+  }
 
-    if (!synced_ && synchronization_address_ ==
-                        e131DataPacket->framing_layer.synchronization_address) {
-      return;
-    }
-
-    if (e131DataPacket->framing_layer.synchronization_address != 0u) {
-      auto lowByte = static_cast<std::uint8_t>(
-          e131DataPacket->framing_layer.synchronization_address & 0x00FFu);
-      auto highByte = static_cast<std::uint8_t>(
-          e131DataPacket->framing_layer.synchronization_address & 0xFF00u >> 8);
-
-      OpenMulticastSocket(kSyncE131Socket, highByte, lowByte);
-      synced_ = false;
-    } else if (e131DataPacket->framing_layer.synchronization_address == 0u) {
-      synced_ = false;
-      close(kSyncE131Socket);
-    }
-    synchronization_address_ =
-        e131DataPacket->framing_layer.synchronization_address;
-
-    Panel::ColorData colors{};
-    auto colors_begin{colors.begin()};
-    auto property_begin{e131DataPacket->dmp_layer.property_values.data() + 1};
-
-    if (!unicast) {
-      property_begin += animation_buffer_offset_;
-    }
-
-    for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
-      if (!unicast && (bytes == 6u || bytes == 18u)) {
-        // Jump to next row
-        i = i - 6u + 96u;
-      }
-
-      if (bytes == 12u) {
-        // Set left panel data
-        Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
-
-        if (!unicast) {
-          i -= 96u;
-        }
-
-        colors_begin = colors.begin();
-      } else if (bytes == 24u) {
-        // Set right panel data
-        Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
-        break;
-      }
-
-      *colors_begin = (*i * 15u + 135u) >> 8u;
-      colors_begin++;
-    }
+  if (synchronization_address_ == 0u) {
+    Panel::SendColorDataAll();
   }
 }
 
@@ -317,6 +325,8 @@ void Network::HandleE131SyncPacket() {
   }
 
   auto e131SyncPacket = (E131SyncPacket *)buffer.data();
+  auto sequence_number =
+      e131SyncPacket->framing_layer.sequence_number - sync_sequence_number_;
   if (e131SyncPacket->root_layer.preamble_size != 0x0010u ||
       e131SyncPacket->root_layer.post_amble_size != 0 ||
       e131SyncPacket->root_layer.acn_packet_identifier !=
@@ -324,21 +334,18 @@ void Network::HandleE131SyncPacket() {
       e131SyncPacket->root_layer.vector != VECTOR_ROOT_E131_EXTENDED ||
       e131SyncPacket->framing_layer.vector !=
           VECTOR_E131_EXTENDED_SYNCHRONIZATION ||
+      sequence_number <= 0 && sequence_number > -20 ||
+      e131SyncPacket->framing_layer.synchronization_address == 0u ||
       e131SyncPacket->framing_layer.synchronization_address !=
-          synchronization_address_ ||
-      e131SyncPacket->framing_layer.synchronization_address == 0u) {
+          synchronization_address_) {
     return;
   }
-
-  auto sequence_number =
-      e131SyncPacket->framing_layer.sequence_number - sync_sequence_number_;
-  if (sequence_number <= 0 && sequence_number > -20) {
-    return;
-  }
+  HAL_TIM_Base_Stop_IT(&htim16);
   data_sequence_number_ = e131SyncPacket->framing_layer.sequence_number;
 
   Panel::SendColorDataAll();
   synced_ = true;
+  HAL_TIM_Base_Start_IT(&htim16);
 }
 
 void Network::HandleCommandProtocol() {

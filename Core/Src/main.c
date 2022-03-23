@@ -96,6 +96,7 @@ int main(void)
   MX_CRC_Init();
   MX_SPI1_Init();
   MX_ADC_Init();
+  MX_TIM16_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim6);
   HAL_ADCEx_Calibration_Start(&hadc);

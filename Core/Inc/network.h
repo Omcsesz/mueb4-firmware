@@ -61,6 +61,8 @@ class Network final {
 
   void IpUpdate();
 
+  void E131NetworkDataLossTimeout();
+
   static void IpConflict();
 
  private:
@@ -132,7 +134,9 @@ class Network final {
 
   std::uint8_t sync_sequence_number_{0u};
 
-  bool synced_{false};
+  bool synced_{true};
+
+  bool force_synchronization_{false};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_

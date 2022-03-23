@@ -57,6 +57,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define PRESCALER 45000 - 1
 #define PANEL_12v_LEFT_Pin GPIO_PIN_13
 #define PANEL_12v_LEFT_GPIO_Port GPIOC
 #define PANEL_ADC_3V3_LEFT_Pin GPIO_PIN_0

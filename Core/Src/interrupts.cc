@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "main.h"
+#include "network.h"
 #include "panel.h"
 #include "tim.h"
 #include "usart.h"
@@ -21,6 +22,9 @@ extern "C" void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_RESET);
     DHCP_time_handler();
     Panel::TimeHandler();
+  } else if (htim == &htim16) {
+    HAL_TIM_Base_Stop_IT(&htim16);
+    Network::Instance().E131NetworkDataLossTimeout();
   }
 }
 

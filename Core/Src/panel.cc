@@ -98,11 +98,13 @@ void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
                         white_balance_data_.size());
 }
 
-Panel Panel::SetColorData(const ColorData& colorData) {
+Panel& Panel::SetColorData(const ColorData& colorData) {
   for (auto i{0u}; i < colorData.size(); i++) {
     color_data_[i + 1u] =
         static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x0Fu));
   }
+
+  return *this;
 }
 
 void Panel::Heartbeat() {
