@@ -61,9 +61,11 @@ class Network final {
 
   void IpUpdate();
 
-  void E131NetworkDataLossTimeout();
+  void SyncTimedOut();
 
   static void IpConflict();
+
+  void StreamTerminated();
 
  private:
   /// Command socket port number.
@@ -106,9 +108,7 @@ class Network final {
   CheckIpAddress(const std::uint8_t &socket_number);
 
   /// Handles animation protocol.
-  void HandleE131DataPacket(bool unicast);
-
-  void HandleE131SyncPacket();
+  void HandleE131Packet(bool unicast, std::uint8_t socket_number);
 
   /**
    * Handles remote command.
@@ -124,6 +124,8 @@ class Network final {
    */
   std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
 
+  std::array<std::uint8_t, 16u> cid_{};
+
   std::uint16_t firmware_updater_size_{0u};
 
   std::uint16_t animation_buffer_offset_{0u};
@@ -133,6 +135,10 @@ class Network final {
   std::uint8_t data_sequence_number_{0u};
 
   std::uint8_t sync_sequence_number_{0u};
+
+  std::uint8_t priority_{0};
+
+  std::uint8_t multicast_number_{0};
 
   bool synced_{true};
 

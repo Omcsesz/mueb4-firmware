@@ -58,6 +58,8 @@ void Error_Handler(void);
 
 /* Private defines -----------------------------------------------------------*/
 #define PRESCALER 45000 - 1
+#define E131_NETWORK_DATA_LOSS_TIMEOUT 2500 - 1
+#define SECOND 1000 - 1
 #define PANEL_12v_LEFT_Pin GPIO_PIN_13
 #define PANEL_12v_LEFT_GPIO_Port GPIOC
 #define PANEL_ADC_3V3_LEFT_Pin GPIO_PIN_0
