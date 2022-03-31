@@ -1,6 +1,7 @@
 #ifndef MUEB4_FIRMWARE_CORE_INC_E131_H_
 #define MUEB4_FIRMWARE_CORE_INC_E131_H_
 
+#include <array>
 #include <boost/endian.hpp>
 #include <cstdint>
 
@@ -11,7 +12,7 @@ constexpr std::uint32_t VECTOR_E131_DATA_PACKET{0x00000002u};
 constexpr std::uint32_t VECTOR_E131_EXTENDED_SYNCHRONIZATION{0x00000001u};
 constexpr std::uint16_t ACN_SDT_MULTICAST_PORT{5568u};
 
-constexpr std::array<std::uint8_t, 12> kAcn_packet_identifier{
+constexpr std::array<std::uint8_t, 12> kAcnPacketIdentifier{
     0x41u, 0x53u, 0x43u, 0x2du, 0x45u, 0x31u,
     0x2eu, 0x31u, 0x37u, 0x00u, 0x00u, 0x00u};
 

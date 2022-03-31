@@ -10,6 +10,7 @@
 #include <socket.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -91,9 +92,18 @@ void Network::Step() {
       if (getSn_RX_RSR(kUnicastE131Socket) > 0u) {
         HandleE131Packet(true, kUnicastE131Socket);
       }
-
       HAL_NVIC_EnableIRQ(TIM16_IRQn);
       HAL_NVIC_EnableIRQ(TIM17_IRQn);
+
+      HAL_NVIC_DisableIRQ(TIM14_IRQn);
+      if (getSn_RX_RSR(kArtNetUnicastSocket) > 0u) {
+        HandleArtNetPacket(true, kArtNetUnicastSocket);
+      }
+
+      if (getSn_RX_RSR(kArtNetBroadCastSocket) > 0u) {
+        HandleArtNetPacket(false, kArtNetBroadCastSocket);
+      }
+      HAL_NVIC_EnableIRQ(TIM14_IRQn);
     }
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
@@ -132,6 +142,12 @@ void Network::UpdateIp() {
   animation_buffer_offset_ = (level_number * 192u + room_number * 12u) % 384u;
 
   OpenMulticastSocket(kMulticastE131Socket, 0u, multicast_number_);
+
+  art_poll_reply_.ip_address = std::to_array(net_info.ip);
+
+  sendto(kArtNetUnicastSocket, (std::uint8_t *)&art_poll_reply_,
+         sizeof(ArtPollReply), (std::uint8_t *)kArtNetBroadCast.data(),
+         kArtNetUnicastSocket);
 }
 
 void Network::IpAssign() {
@@ -162,7 +178,7 @@ void Network::StreamTerminated() {
   data_sequence_number_ = 0;
   sync_sequence_number_ = 0;
   priority_ = 0;
-  synced_ = true;
+  synced_ = false;
   force_synchronization_ = false;
 
   HAL_TIM_Base_Stop_IT(&htim16);
@@ -197,10 +213,10 @@ Network::Network() {
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
   reg_dhcp_cbfunc(CIpAssign, CIpUpdate, CIpConflict);
 
-  // DHCP, command protocol, firmware socket, E131 unicast, e131 multicast rx/tx
-  // sizes
-  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u, 1u, 1u};
-  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 2u, 2u, 2u};
+  // DHCP, command protocol, firmware socket, E131 unicast, e131 multicast,
+  // art-net unicast rx/tx sizes
+  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u, 1u, 1u, 1u, 1u};
+  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 2u, 2u, 2u, 2u, 2u};
   // This includes soft reset
   wizchip_init(txsize.data(), rxsize.data());
 
@@ -209,6 +225,7 @@ Network::Network() {
   HAL_I2C_Mem_Read(&hi2c2, kEepromAddress, kEui48MacStartAddress,
                    I2C_MEMADD_SIZE_8BIT, net_info.mac, 6u, HAL_MAX_DELAY);
   setSHAR(net_info.mac);
+  art_poll_reply_.mac = std::to_array(net_info.mac);
 
   // Set all capable, Auto-negotiation enabled
   wiz_PhyConf_t phyconf{PHY_CONFBY_SW, PHY_MODE_AUTONEGO};
@@ -219,6 +236,9 @@ Network::Network() {
 
   socket(kCommandSocket, Sn_MR_UDP, kCommandSocketPort, 0x00u);
   socket(kUnicastE131Socket, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT, SF_BROAD_BLOCK);
+  socket(kArtNetUnicastSocket, Sn_MR_UDP, kArtNetPort, SF_BROAD_BLOCK);
+  socket(kArtNetBroadCastSocket, Sn_MR_UDP, kArtNetPort,
+         SF_UNI_BLOCK | SF_MULTI_ENABLE);
 }
 
 template <std::size_t N>
@@ -241,6 +261,44 @@ Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return std::make_tuple(size, std::move(buffer), server_address, server_port);
 }
 
+void Network::SetPanelColorData(std::uint8_t *data, bool unicast) {
+  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
+  Panel::SetInternalAnimation(false);
+
+  Panel::ColorData colors{};
+  auto colors_begin{colors.begin()};
+  auto data_begin{data};
+
+  if (!unicast) {
+    data_begin += animation_buffer_offset_;
+  }
+
+  for (auto [i, bytes] = std::tuple(data_begin, 0u);; i++, bytes++) {
+    if (!unicast && (bytes == 6u || bytes == 18u)) {
+      // Jump to next row
+      i = i - 6u + 96u;
+    }
+
+    if (bytes == 12u) {
+      // Set left panel data
+      Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
+
+      if (!unicast) {
+        i -= 96u;
+      }
+
+      colors_begin = colors.begin();
+    } else if (bytes == 24u) {
+      // Set right panel data
+      Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
+      break;
+    }
+
+    *colors_begin = (*i * 15u + 135u) >> 8u;
+    colors_begin++;
+  }
+}
+
 void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
   const auto [size, buffer, server_address, server_port]{
       CheckIpAddress<kE131DataPacketMaxSize>(socket_number)};
@@ -251,7 +309,7 @@ void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
   const auto root_layer = (RootLayer *)buffer.data();
   if (root_layer->preamble_size != 0x0010u ||
       root_layer->post_amble_size != 0x0000u ||
-      root_layer->acn_packet_identifier != kAcn_packet_identifier) {
+      root_layer->acn_packet_identifier != kAcnPacketIdentifier) {
     return;
   }
 
@@ -274,7 +332,7 @@ void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
         (data_sequence_number_ > 0u && e131DataPacket->root_layer.cid != cid_ &&
          e131DataPacket->framing_layer.priority == priority_) ||
         e131DataPacket->framing_layer.options & 0x80u || stream_terminated ||
-        (e131DataPacket->framing_layer.synchronization_address != 0u &&
+        (synchronization_address_ != 0u &&
          (!force_synchronization && !synced_)) ||
         e131DataPacket->dmp_layer.vector != VECTOR_DMP_SET_PROPERTY ||
         e131DataPacket->dmp_layer.address_type_and_data_type != 0xa1u ||
@@ -301,9 +359,6 @@ void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
       return;
     }
 
-    HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
-    Panel::SetInternalAnimation(false);
-
     if (synchronization_address_ == 0u &&
         e131DataPacket->framing_layer.synchronization_address != 0u) {
       const auto lowByte = static_cast<std::uint8_t>(
@@ -319,44 +374,14 @@ void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
       synced_ = false;
     } else if (synchronization_address_ != 0u &&
                e131DataPacket->framing_layer.synchronization_address == 0u) {
-      synced_ = true;
+      synced_ = false;
       close(kSyncE131Socket);
     }
     synchronization_address_ =
         e131DataPacket->framing_layer.synchronization_address;
 
-    Panel::ColorData colors{};
-    auto colors_begin{colors.begin()};
-    auto property_begin{e131DataPacket->dmp_layer.property_values.data() + 1};
-
-    if (!unicast) {
-      property_begin += animation_buffer_offset_;
-    }
-
-    for (auto [i, bytes] = std::tuple(property_begin, 0u);; i++, bytes++) {
-      if (!unicast && (bytes == 6u || bytes == 18u)) {
-        // Jump to next row
-        i = i - 6u + 96u;
-      }
-
-      if (bytes == 12u) {
-        // Set left panel data
-        Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
-
-        if (!unicast) {
-          i -= 96u;
-        }
-
-        colors_begin = colors.begin();
-      } else if (bytes == 24u) {
-        // Set right panel data
-        Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
-        break;
-      }
-
-      *colors_begin = (*i * 15u + 135u) >> 8u;
-      colors_begin++;
-    }
+    SetPanelColorData(e131DataPacket->dmp_layer.property_values.data() + 1,
+                      false);
 
     if (synchronization_address_ == 0u) {
       Panel::SendColorDataAll();
@@ -390,8 +415,74 @@ void Network::HandleE131Packet(bool unicast, std::uint8_t socket_number) {
     HAL_NVIC_ClearPendingIRQ(TIM17_IRQn);
     htim17.Instance->EGR = TIM_EGR_UG;
     CLEAR_BIT(htim17.Instance->SR, TIM_SR_UIF);
-
     HAL_TIM_Base_Start_IT(&htim17);
+  }
+}
+
+void Network::HandleArtNetPacket(bool unicast, std::uint8_t socket_number) {
+  const auto [size, buffer, server_address,
+              server_port]{CheckIpAddress<1500>(socket_number)};
+  if (size <= 0) {
+    return;
+  }
+
+  const auto packet = (ArtNetHeader *)buffer.data();
+
+  if (packet->art_id_op_code.id != kArtNetId ||
+      packet->protocol_version != 14u) {
+    return;
+  }
+
+  switch (packet->art_id_op_code.op_code) {
+    case kOpPoll: {
+      sendto(kArtNetUnicastSocket, (std::uint8_t *)&art_poll_reply_,
+             sizeof(ArtPollReply), (std::uint8_t *)kArtNetBroadCast.data(),
+             kArtNetUnicastSocket);
+      break;
+    }
+    case kOpOutput: {
+      const auto art_dmx = (ArtDmx *)buffer.data();
+      if (art_dmx->sequence != 0u) {
+        const auto sequence_number = art_dmx->sequence - data_sequence_number_;
+        if (sequence_number <= 0 && sequence_number > -20) {
+          return;
+        }
+
+        data_sequence_number_ = art_dmx->sequence;
+      }
+
+      if (art_dmx->net != art_poll_reply_.net_switch ||
+          art_dmx->sub_uni != art_poll_reply_.sub_switch ||
+          art_dmx->length < 2u || art_dmx->length > 512u ||
+          (!unicast && art_dmx->length < 384u) ||
+          (unicast && art_dmx->length < 24u) ||
+          (last_ip_address_[0] != 0u && last_ip_address_ != server_address)) {
+        return;
+      }
+      last_ip_address_ = server_address;
+
+      SetPanelColorData(art_dmx->data.data(), unicast);
+
+      if (!synced_) {
+        Panel::SendColorDataAll();
+      }
+      break;
+    }
+    case kOpSync: {
+      if (last_ip_address_ != server_address) {
+        return;
+      }
+
+      synced_ = true;
+      Panel::SendColorDataAll();
+
+      HAL_TIM_Base_Stop_IT(&htim14);
+      HAL_NVIC_ClearPendingIRQ(TIM14_IRQn);
+      htim14.Instance->EGR = TIM_EGR_UG;
+      CLEAR_BIT(htim14.Instance->SR, TIM_SR_UIF);
+      HAL_TIM_Base_Start_IT(&htim14);
+      break;
+    }
   }
 }
 

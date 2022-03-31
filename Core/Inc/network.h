@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <tuple>
 
+#include "art_net.h"
+
 /**
  * Manages all network related functionality.
  */
@@ -94,6 +96,10 @@ class Network final {
 
   static constexpr std::uint8_t kSyncE131Socket{5u};
 
+  static constexpr std::uint8_t kArtNetUnicastSocket{6u};
+
+  static constexpr std::uint8_t kArtNetBroadCastSocket{7u};
+
   static constexpr std::uint8_t kCommandProtocolMaxSize{57u};
 
   Network();
@@ -107,8 +113,12 @@ class Network final {
              std::array<std::uint8_t, 4u>, std::uint16_t>
   CheckIpAddress(const std::uint8_t &socket_number);
 
+  void SetPanelColorData(std::uint8_t *data, bool unicast);
+
   /// Handles animation protocol.
   void HandleE131Packet(bool unicast, std::uint8_t socket_number);
+
+  void HandleArtNetPacket(bool unicast, std::uint8_t socket_number);
 
   /**
    * Handles remote command.
@@ -122,9 +132,13 @@ class Network final {
    * DHCP RX buffer.
    * @note 1 KB should be enough for DHCP RX buffer.
    */
-  std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{};
+  std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{0u};
 
-  std::array<std::uint8_t, 16u> cid_{};
+  ArtPollReply art_poll_reply_;
+
+  std::array<std::uint8_t, 16u> cid_{0u};
+
+  std::array<std::uint8_t, 4u> last_ip_address_{0u};
 
   std::uint16_t firmware_updater_size_{0u};
 
@@ -136,11 +150,11 @@ class Network final {
 
   std::uint8_t sync_sequence_number_{0u};
 
-  std::uint8_t priority_{0};
+  std::uint8_t priority_{0u};
 
-  std::uint8_t multicast_number_{0};
+  std::uint8_t multicast_number_{0u};
 
-  bool synced_{true};
+  bool synced_{false};
 
   bool force_synchronization_{false};
 };

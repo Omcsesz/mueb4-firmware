@@ -24,7 +24,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     Panel::TimeHandler();
   } else if (htim == &htim16) {
     Network::Instance().StreamTerminated();
-  } else if (htim == &htim17) {
+  } else if (htim == &htim17 || htim == &htim14) {
     Network::Instance().SyncTimedOut();
   }
 }
