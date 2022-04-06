@@ -16,7 +16,6 @@ It contains device status information */
 constexpr std::uint16_t kOpSync{0x5200u};   /* This is an ArtNzs data packet. It
                               contains non-zero   start code (except RDM) DMX512
                               information for a   single Universe */
-constexpr std::array<std::uint8_t, 4u> kArtNetBroadCast{10u, 6u, 255u, 255u};
 
 struct ArtIdOpCode {
   std::array<std::uint8_t, 8u> id; /* Array of 8 characters, the final character
@@ -28,7 +27,7 @@ BOOST_STATIC_ASSERT(sizeof(ArtIdOpCode) == 10u);
 
 struct ArtNetHeader {
   ArtIdOpCode art_id_op_code;
-  boost::endian::big_uint16_t protocol_version; /* High byte of the Art-Net
+  boost::endian::big_uint16_t prot_ver; /* High byte of the Art-Net
                         protocol revision number. Low byte of the Art-Net
                         protocol revision number. Current value 14 */
 };
@@ -61,20 +60,20 @@ number*/
                       encoded into the bottom 7 bits of this field. This is used
                       in combination with SubSwitch and SwIn[] or SwOut[] to
                       produce the full universe address */
-  const std::uint8_t sub_switch{0u}; /* Bits 7-4 of the 15 bit Port-Address are
-encoded into the bottom 4 bits of this field.
-This is used in combination with NetSwitch
-and SwIn[] or SwOut[] to produce the full
-universe address */
-  const boost::endian::big_uint16_t oem{0x7ff0u}; /* The high byte of the Oem
+  std::uint8_t sub_switch{0u};       /* Bits 7-4 of the 15 bit Port-Address are
+      encoded into the bottom 4 bits of this field.
+      This is used in combination with NetSwitch
+      and SwIn[] or SwOut[] to produce the full
+      universe address */
+  const boost::endian::big_uint16_t oem{0xffffu}; /* The high byte of the Oem
 value. The low byte of the Oem value. The Oem word describes the equipment
 vendor and the feature set available. Bit 15 high indicates extended features
 available. Current registered codes are defined in Table 2 */
   const std::uint8_t ubea_version{0u}; /* This field contains the firmware
 version of the User Bios Extension Area (UBEA). If the UBEA is not programmed,
 this field contains zero */
-  std::uint8_t status_1{0b11000010u};  /* General Status register containing bit
-       fields as follows */
+  std::uint8_t status_1{0b00100000u};           /* General Status register containing bit
+                fields as follows */
   const boost::endian::little_uint16_t esta_man{
       0x7ff0u}; /* The ESTA manufacturer
 code. These codes are used to represent equipment manufacturer. They are
@@ -94,20 +93,21 @@ This is a fixed length field, although the
 string it contains can be shorter than the
 field */
   std::array<std::uint8_t, 64u> node_report{
-      "#0001 0 GOOD"}; /* The array is a textual report of
-the Node’s operating status or operational errors. It is primarily intended for
-‘engineering’ data rather than ‘end user’ data. The field is formatted as:
-“#xxxx [yyyy..] zzzzz…” xxxx is a hex status code as defined in Table
-3. yyyy is a decimal counter that increments
-every time the Node sends an
-ArtPollResponse.
-This allows the controller to monitor event
-changes in the Node.
-zzzz is an English text string defining the
-status.
-This is a fixed length field, although the
-string it contains can be shorter than the
-field */
+      "#0001 [0001] Power On Tests successful."};  /* The array is a textual
+ report of   the Node’s operating status or operational errors. It is primarily
+ intended for   ‘engineering’ data rather than ‘end user’ data. The field is
+ formatted as:   “#xxxx [yyyy..] zzzzz…” xxxx is a hex status code as defined in
+ Table
+ 3. yyyy is a decimal counter that increments
+ every time the Node sends an
+ ArtPollResponse.
+ This allows the controller to monitor event
+ changes in the Node.
+ zzzz is an English text string defining the
+ status.
+ This is a fixed length field, although the
+ string it contains can be shorter than the
+ field */
   const boost::endian::big_uint16_t num_ports{1u}; /* The high byte of the word
  describing the number of input or output ports. The high byte is for future
  expansion and is currently zero.  The low byte of the word describing the
@@ -116,7 +116,7 @@ field */
  output ports are implemented. The maximum value is 4. Nodes can ignore this
  field as the information is implicit in PortTypes[]*/
   std::array<std::uint8_t, 4u> port_types{
-      0b10000101u}; /* This array defines the
+      0b01000101u}; /* This array defines the
 operation and protocol of each channel. (A product with 4 inputs and 4 outputs
 would report 0xc0, 0xc0, 0xc0, 0xc0). The array length is fixed, independent of
 the number of inputs or outputs physically available on the Node */
@@ -129,51 +129,46 @@ the number of inputs or outputs physically available on the Node */
 each  of the 4 possible input ports are encoded  into the low nibble */
   boost::endian::big_uint32_t sw_out{0u}; /* Bits 3-0 of the 15 bit Port-Address
 for each of the 4 possible output ports are encoded into the low nibble */
-  std::uint8_t sw_video{0b01u}; /* Set to 00 when video display is showing local
-                 data. Set to 01 when video is showing
+  const std::uint8_t sw_video{0u}; /* Set to 00 when video display is showing
+                 local data. Set to 01 when video is showing
                  ethernet data. The field is now deprecated */
-  std::uint8_t sw_macro{0xffu}; /* If the Node supports macro key inputs, this
-                 byte represents the  trigger values. The Node is responsible
-                 for ‘debouncing’ inputs. When the  ArtPollReply is set to
-                 transmit automatically, (TalkToMe Bit 1), the  ArtPollReply
-                 will be sent on both key down  and key up events. However, the
-                 Controller should not assume that only one bit position has
-                 changed. The Macro inputs are used for remote event triggering
-                 or cueing. Bit fields are active high */
-  std::uint8_t sw_remote{0xffu}; /* If the Node supports remote trigger inputs,
-      this byte represents the trigger values. The
-      Node is responsible for ‘debouncing’ inputs.
-      When the ArtPollReply is set to transmit
-      automatically, (TalkToMe Bit 1), the
-      ArtPollReply will be sent on both key down
-      and key up events. However, the Controller
-      should not assume that only one bit position
-      has changed.
-      The Remote inputs are used for remote
-      event triggering or cueing.
-      Bit fields are active high */
-  boost::endian::big_uint24_t spare{0u}; /* Not used, set to zero
-                                          */
+  const std::uint8_t sw_macro{0u}; /* If the Node supports macro key inputs,
+                 this byte represents the  trigger values. The Node is
+                 responsible for ‘debouncing’ inputs. When the  ArtPollReply is
+                 set to transmit automatically, (TalkToMe Bit 1), the
+                 ArtPollReply will be sent on both key down  and key up events.
+                 However, the Controller should not assume that only one bit
+                 position has changed. The Macro inputs are used for remote
+                 event triggering or cueing. Bit fields are active high */
+  const std::uint8_t sw_remote{
+      0u};                               /* If the Node supports remote trigger
+           inputs,   this byte represents the trigger values. The   Node is
+           responsible   for ‘debouncing’ inputs.   When the ArtPollReply is set to
+           transmit   automatically, (TalkToMe Bit 1), the   ArtPollReply will be sent on
+           both key down   and key up events. However, the Controller   should not assume
+           that only one bit position   has changed.   The Remote inputs are used for
+           remote   event triggering or cueing.   Bit fields are active high */
+  boost::endian::big_uint24_t spare{0u}; /* Not used, set to zero */
   const std::uint8_t style{0x00}; /* The Style code defines the equipment style
                    of the device. See Table 4 for current Style
                    codes */
   std::array<std::uint8_t, 6u> mac{0u}; /* MAC Address Hi Byte. Set to zero if
 node   cannot supply this information */
-  const boost::endian::big_uint32_t bind_ip{0u}; /* If this unit is part of a
+  std::array<std::uint8_t, 4u> bind_ip{0u}; /* If this unit is part of a
 larger or modular product, this is the IP of the root device */
   const std::uint8_t bind_index{1u}; /* This number represents the order of
               bound devices. A lower number means closer to
               root device. A value of 1 means root device */
-  const std::uint8_t status_2{0b11011110u};
+  const std::uint8_t status_2{0b00001110u};
   const std::array<std::uint8_t, 4u> good_output_b{
       0b01000000u}; /* This array defines output status of the node */
-  const std::uint8_t status_3{0b01100000u}; /* General Status register
+  const std::uint8_t status_3{0b00000000u}; /* General Status register
                                containing bit fields as follows */
-  std::array<std::uint8_t, 21u * 8u> filler{
+  std::array<std::uint8_t, 21u> filler{
       0u}; /* Transmit as zero. For future expansion */
 };
 
-BOOST_STATIC_ASSERT(sizeof(ArtPollReply) == sizeof(ArtIdOpCode) + 376u);
+BOOST_STATIC_ASSERT(sizeof(ArtPollReply) == sizeof(ArtIdOpCode) + 229u);
 
 struct ArtDmx {
   ArtNetHeader header;
@@ -203,10 +198,14 @@ input. This field is for information only. Use Universe for data routing */
 lighting data */
 };
 
+BOOST_STATIC_ASSERT(sizeof(ArtDmx) == sizeof(ArtNetHeader) + 518u);
+
 struct ArtSync {
   ArtNetHeader header;
-  std::uint8_t Aux1; /* Transmit as zero */
-  std::uint8_t Aux2; /* Transmit as zero */
+  std::uint8_t aux_1; /* Transmit as zero */
+  std::uint8_t aux_2; /* Transmit as zero */
 };
+
+BOOST_STATIC_ASSERT(sizeof(ArtSync) == sizeof(ArtNetHeader) + 2u);
 
 #endif  // MUEB4_FIRMWARE_CORE_INC_ART_NET_H_

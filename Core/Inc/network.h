@@ -73,10 +73,6 @@ class Network final {
   /// Command socket port number.
   static constexpr std::uint16_t kCommandSocketPort{50000u};
 
-  static constexpr std::uint16_t kE131DataPacketMaxSize{638u};
-
-  static constexpr std::uint16_t kE131SyncPacketMaxSize{49u};
-
   /// EUI-48 MAC start address.
   static constexpr std::uint16_t kEui48MacStartAddress{0xFAu};
 
@@ -90,35 +86,26 @@ class Network final {
   static constexpr std::uint8_t kCommandSocket{1u};
 
   /// Animation socket number.
-  static constexpr std::uint8_t kMulticastE131Socket{3u};
+  static constexpr std::uint8_t kE131Socket{3u};
 
-  static constexpr std::uint8_t kUnicastE131Socket{4u};
+  static constexpr std::uint8_t kE131SyncSocket{4u};
 
-  static constexpr std::uint8_t kSyncE131Socket{5u};
-
-  static constexpr std::uint8_t kArtNetUnicastSocket{6u};
-
-  static constexpr std::uint8_t kArtNetBroadCastSocket{7u};
-
-  static constexpr std::uint8_t kCommandProtocolMaxSize{57u};
+  static constexpr std::uint8_t kArtNetSocket{5u};
 
   Network();
 
-  static void OpenMulticastSocket(std::uint8_t socket_number,
-                                  std::uint8_t third_octet,
-                                  std::uint8_t last_octet);
+  static void OpenMulticastSocket(const std::uint8_t &socket_number,
+                                  const std::uint8_t &third_octet,
+                                  const std::uint8_t &last_octet);
 
-  template <std::size_t N>
-  std::tuple<std::int32_t, std::array<std::uint8_t, N>,
-             std::array<std::uint8_t, 4u>, std::uint16_t>
-  CheckIpAddress(const std::uint8_t &socket_number);
+  static auto CheckIpAddress(const std::uint8_t &socket_number);
 
-  void SetPanelColorData(std::uint8_t *data, bool unicast);
+  void SetPanelColorData(std::uint8_t *data);
 
   /// Handles animation protocol.
-  void HandleE131Packet(bool unicast, std::uint8_t socket_number);
+  void HandleE131Packet(const std::uint8_t &socket_number);
 
-  void HandleArtNetPacket(bool unicast, std::uint8_t socket_number);
+  void HandleArtNetPacket(const std::uint8_t &socket_number);
 
   /**
    * Handles remote command.
@@ -130,9 +117,8 @@ class Network final {
 
   /**
    * DHCP RX buffer.
-   * @note 1 KB should be enough for DHCP RX buffer.
    */
-  std::array<std::uint8_t, 1024u> dhcp_rx_buffer_{0u};
+  std::array<std::uint8_t, 576u> dhcp_rx_buffer_{0u};
 
   ArtPollReply art_poll_reply_;
 
@@ -140,9 +126,11 @@ class Network final {
 
   std::array<std::uint8_t, 4u> last_ip_address_{0u};
 
+  std::array<std::uint8_t, 4u> broadcast_ip_address_{0u};
+
   std::uint16_t firmware_updater_size_{0u};
 
-  std::uint16_t animation_buffer_offset_{0u};
+  std::uint16_t dmx_buffer_offset_{0u};
 
   std::uint16_t synchronization_address_{0u};
 
@@ -152,7 +140,7 @@ class Network final {
 
   std::uint8_t priority_{0u};
 
-  std::uint8_t multicast_number_{0u};
+  std::uint8_t e131_universe_{0u};
 
   bool synced_{false};
 

@@ -48,7 +48,7 @@ firmware_updater_start = ORIGIN(FLASH) + LENGTH(FLASH);
 firmware_updater_pages = (flash_end - firmware_updater_start) / 1K;
 
 _Min_Heap_Size = 0x200 ; /* required amount of heap */
-_Min_Stack_Size = 0x800 ; /* required amount of stack */
+_Min_Stack_Size = 0xc00 ; /* required amount of stack */
 
 /* Memories definition */
 MEMORY
