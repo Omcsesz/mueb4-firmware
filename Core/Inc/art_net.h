@@ -161,7 +161,7 @@ larger or modular product, this is the IP of the root device */
   const std::uint8_t bind_index{1u}; /* This number represents the order of
               bound devices. A lower number means closer to
               root device. A value of 1 means root device */
-  const std::uint8_t status_2{0b00001110u};
+  const std::uint8_t status_2{0b00011110u};
   const std::array<std::uint8_t, 4u> good_output_b{
       0b01000000u}; /* This array defines output status of the node */
   const std::uint8_t status_3{0u}; /* General Status register

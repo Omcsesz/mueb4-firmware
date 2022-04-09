@@ -81,11 +81,11 @@ void Network::Step() {
         HAL_NVIC_DisableIRQ(TIM16_IRQn);
         HAL_NVIC_DisableIRQ(TIM17_IRQn);
 
-        if (getSn_RX_RSR(kE131SyncSocket) > 0u) {
+        if (!art_net_data_mode && getSn_RX_RSR(kE131SyncSocket) > 0u) {
           HandleE131Packet(kE131SyncSocket);
         }
 
-        if (getSn_RX_RSR(kE131Socket) > 0u) {
+        if (!art_net_data_mode && getSn_RX_RSR(kE131Socket) > 0u) {
           HandleE131Packet(kE131Socket);
         }
 
@@ -169,7 +169,8 @@ void Network::IpConflict() {
 void Network::StreamTerminated() {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_RESET);
 
-  if (synchronization_address_ != 0u && !force_synchronization_) {
+  if (!art_net_data_mode && synchronization_address_ != 0u &&
+      !force_synchronization_) {
     return;
   }
 
@@ -432,6 +433,11 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       break;
     }
     case kOpOutput: {
+      if (!art_net_data_mode) {
+        art_net_data_mode = true;
+        StreamTerminated();
+      }
+
       const auto art_dmx = (ArtDmx *)buffer.data();
       if (art_dmx->sequence != 0u) {
         const auto sequence_number = art_dmx->sequence - data_sequence_number_;
@@ -466,6 +472,11 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       break;
     }
     case kOpSync: {
+      if (!art_net_data_mode) {
+        art_net_data_mode = true;
+        StreamTerminated();
+      }
+
       if (last_ip_address_ != server_address) {
         return;
       }
@@ -556,6 +567,14 @@ void Network::HandleCommandProtocol() {
     }
     case Command::kFlashFirmwareUpdater:
       FlashFirmwareUpdater();
+      break;
+    case Command::kSetArtNet:
+      art_net_data_mode = true;
+      StreamTerminated();
+      break;
+    case Command::kSetE131:
+      art_net_data_mode = false;
+      StreamTerminated();
       break;
     // Immutable commands
     case Command::kPing:

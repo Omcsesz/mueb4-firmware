@@ -31,6 +31,8 @@ class Network final {
     kReset = 0x07u,                  ///< Reboot device
     kStartFirmwareUpdate = 0x08u,    ///< Start firmware update process
     kFlashFirmwareUpdater = 0x09u,   ///< Flash firmware updater
+    kSetArtNet = 0x10u,
+    kSetE131 = 0x11u,
     // Immutable commands
     kPing = 0x0Au,                 ///< Send back 'pong' response
     kGetStatus = 0x0Bu,            ///< Get device's status
@@ -145,6 +147,8 @@ class Network final {
   bool synced_{false};
 
   bool force_synchronization_{false};
+
+  bool art_net_data_mode{false};
 };
 
 #endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_
