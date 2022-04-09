@@ -121,7 +121,7 @@ void Network::OpenMulticastSocket(const std::uint8_t &socket_number,
   setSn_DPORT(socket_number, ACN_SDT_MULTICAST_PORT);
 
   socket(socket_number, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT,
-         SF_MULTI_ENABLE | SF_BROAD_BLOCK | SF_UNI_BLOCK);
+         SF_MULTI_ENABLE | SF_BROAD_BLOCK);
 }
 
 void Network::UpdateIp() {
@@ -133,8 +133,8 @@ void Network::UpdateIp() {
 
   dmx_buffer_offset_ = (level_number * 192u + room_number * 12u) % 384u;
 
-  e131_universe_ = ((level_number * 8u + room_number) / 16u) + 1u;
-  OpenMulticastSocket(kE131Socket, 0u, e131_universe_);
+  universe_number_ = ((level_number * 8u + room_number) / 16u) + 1u;
+  OpenMulticastSocket(kE131Socket, 0u, universe_number_);
 
   art_poll_reply_.ip_address = std::to_array(net_info.ip);
   art_poll_reply_.bind_ip = art_poll_reply_.ip_address;
@@ -143,9 +143,7 @@ void Network::UpdateIp() {
       (*(std::uint32_t *)net_info.ip & *(std::uint32_t *)net_info.sn) |
           ~*(std::uint32_t *)net_info.sn);
 
-  art_poll_reply_.sw_in[0] = level_number * 8u + room_number + 1u;
-  art_poll_reply_.sub_switch = art_poll_reply_.sw_in[0] / 16u;
-  art_poll_reply_.sw_in[0] %= 16;
+  art_poll_reply_.sw_in[0] = universe_number_;
 
   sendto(kArtNetSocket, (std::uint8_t *)&art_poll_reply_, sizeof(ArtPollReply),
          (std::uint8_t *)broadcast_ip_address_.data(), kArtNetPort);
@@ -263,7 +261,7 @@ auto Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return ret;
 }
 
-void Network::SetPanelColorData(std::uint8_t *data) {
+void Network::SetPanelColorData(const std::uint8_t *data) {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
@@ -362,7 +360,7 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
           (e131DataPacket->framing_layer.synchronization_address & 0xFF00u) >>
           8u);
 
-      if (highByte != 0u || lowByte != e131_universe_) {
+      if (highByte != 0u || lowByte != universe_number_) {
         OpenMulticastSocket(kE131SyncSocket, highByte, lowByte);
       }
 
