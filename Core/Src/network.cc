@@ -261,7 +261,7 @@ auto Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return ret;
 }
 
-void Network::SetPanelColorData(const std::uint8_t *data) {
+void Network::SetPanelColorData(const std::uint8_t *data) const {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 

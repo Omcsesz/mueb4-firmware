@@ -1,12 +1,9 @@
 #include <dhcp.h>
 
-#include <cstdint>
-
 #include "main.h"
 #include "network.h"
 #include "panel.h"
 #include "tim.h"
-#include "usart.h"
 
 extern "C" {
 void HAL_GPIO_EXTI_Callback(std::uint16_t GPIO_Pin) {

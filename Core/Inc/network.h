@@ -100,7 +100,7 @@ class Network final {
 
   static auto CheckIpAddress(const std::uint8_t &socket_number);
 
-  void SetPanelColorData(const std::uint8_t *data);
+  void SetPanelColorData(const std::uint8_t *data) const;
 
   /// Handles animation protocol.
   void HandleE131Packet(const std::uint8_t &socket_number);
