@@ -10,6 +10,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "main.h"
 
@@ -101,7 +102,7 @@ class Panel final {
   /// Send white balance data to panel.
   void SendWhiteBalance(const WhiteBalanceData& white_balance);
 
-  Panel& SetColorData(const ColorData& colorData);
+  Panel& SetColorData(std::span<const std::uint8_t> data, bool _8bit);
 
   void Heartbeat();
 

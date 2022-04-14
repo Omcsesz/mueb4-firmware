@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <tuple>
 
 #include "art_net.h"
@@ -102,7 +103,7 @@ class Network final {
 
   static auto CheckIpAddress(const std::uint8_t &socket_number);
 
-  void SetPanelColorData(const std::uint8_t *data) const;
+  void SetPanelColorData(std::span<const std::uint8_t> data);
 
   /// Handles animation protocol.
   void HandleE131Packet(const std::uint8_t &socket_number);

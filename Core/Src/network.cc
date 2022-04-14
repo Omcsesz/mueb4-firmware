@@ -131,9 +131,9 @@ void Network::UpdateIp() {
   std::uint8_t level_number = 18u - net_info.ip[2];
   std::uint8_t room_number = net_info.ip[3] - 5u;
 
-  dmx_buffer_offset_ = (level_number * 192u + room_number * 12u) % 384u;
+  dmx_buffer_offset_ = (level_number * 192u + room_number * 24u) % 504u;
 
-  universe_number_ = ((level_number * 8u + room_number) / 16u) + 1u;
+  universe_number_ = ((level_number * 8u + room_number) / 21u) + 1u;
   OpenMulticastSocket(kE131Socket, 0u, universe_number_);
 
   art_poll_reply_.ip_address = std::to_array(net_info.ip);
@@ -262,36 +262,17 @@ auto Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return ret;
 }
 
-void Network::SetPanelColorData(const std::uint8_t *data) const {
+void Network::SetPanelColorData(std::span<const std::uint8_t> data) {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
-  Panel::ColorData colors{};
-  auto colors_begin{colors.begin()};
-  auto data_begin{data + dmx_buffer_offset_};
-
-  for (auto [i, bytes] = std::tuple(data_begin, 0u);; i++, bytes++) {
-    if (bytes == 6u || bytes == 18u) {
-      // Jump to next row
-      i = i - 6u + 96u;
-    }
-
-    if (bytes == 12u) {
-      // Set left panel data
-      Panel::GetPanel(Panel::Side::LEFT).SetColorData(colors);
-
-      i -= 96u;
-
-      colors_begin = colors.begin();
-    } else if (bytes == 24u) {
-      // Set right panel data
-      Panel::GetPanel(Panel::Side::RIGHT).SetColorData(colors);
-      break;
-    }
-
-    *colors_begin = (*i * 15u + 135u) >> 8u;
-    colors_begin++;
-  }
+  Panel::GetPanel(Panel::Side::LEFT)
+      .SetColorData(data.subspan(dmx_buffer_offset_, Panel::kColorDataSize),
+                    true);
+  Panel::GetPanel(Panel::Side::RIGHT)
+      .SetColorData(data.subspan(dmx_buffer_offset_ + Panel::kColorDataSize,
+                                 Panel::kColorDataSize),
+                    true);
 }
 
 void Network::HandleE131Packet(const std::uint8_t &socket_number) {
@@ -374,7 +355,8 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
     synchronization_address_ =
         e131DataPacket->framing_layer.synchronization_address;
 
-    SetPanelColorData(e131DataPacket->dmp_layer.property_values.data() + 1);
+    SetPanelColorData({e131DataPacket->dmp_layer.property_values.begin(),
+                       e131DataPacket->dmp_layer.property_values.size()});
 
     if (synchronization_address_ == 0u) {
       Panel::SendColorDataAll();
@@ -458,7 +440,7 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       }
       last_ip_address_ = server_address;
 
-      SetPanelColorData(art_dmx->data.data());
+      SetPanelColorData(art_dmx->data);
 
       if (!synced_) {
         Panel::SendColorDataAll();
@@ -519,8 +501,6 @@ void Network::HandleCommandProtocol() {
       server_address.fill(0xFFu);
     }
   }
-
-  HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
 
   switch (static_cast<Command>(buffer[3])) {
       // Mutable commands

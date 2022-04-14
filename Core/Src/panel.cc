@@ -98,11 +98,13 @@ void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
                         white_balance_data_.size());
 }
 
-Panel& Panel::SetColorData(const ColorData& colorData) {
-  for (auto i{0u}; i < colorData.size(); i++) {
-    color_data_[i + 1u] =
-        static_cast<std::uint8_t>(i << 4u | (colorData[i] & 0x0Fu));
-  }
+Panel& Panel::SetColorData(std::span<const std::uint8_t> data, bool _8bit) {
+  std::uint8_t i{0u};
+  std::transform(data.begin(), data.end(), color_data_.begin() + 1u,
+                 [&](const std::uint8_t& c) -> std::uint8_t {
+                   return static_cast<std::uint8_t>(
+                       (i++ << 4u) | (_8bit ? (c * 15 + 135) >> 8 : c));
+                 });
 
   return *this;
 }
@@ -178,8 +180,8 @@ void Panel::StepInternalAnimation() {
     }
   }
 
-  Panel::left_panel().SetColorData(colors).SendColorData();
-  Panel::right_panel().SetColorData(colors).SendColorData();
+  Panel::left_panel().SetColorData(colors, false).SendColorData();
+  Panel::right_panel().SetColorData(colors, false).SendColorData();
 
   color++;
   if (color == 16u) {
@@ -280,7 +282,7 @@ void Panel::Step() {
   }
 }
 
-void Panel::Blank() { SetColorData(Panel::ColorData{}).SendColorData(); }
+void Panel::Blank() { SetColorData(Panel::ColorData{}, true).SendColorData(); }
 
 void Panel::Disable() {
   HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
