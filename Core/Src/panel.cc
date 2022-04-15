@@ -19,127 +19,6 @@ bool Panel::internal_animation_enabled_{false};
 bool Panel::swapped_{false};
 std::array<std::uint32_t, 2u> Panel::adc_{};
 
-Panel& Panel::GetPanel(Side side) {
-  const Side target{static_cast<Side>(static_cast<bool>(side) ^ swapped_)};
-
-  if (target == Side::RIGHT) {
-    return Panel::left_panel();
-  } else {
-    return Panel::right_panel();
-  }
-}
-
-Panel& Panel::GetPanel(UART_HandleTypeDef* huartx) {
-  if (huartx == &huart1) {
-    return Panel::right_panel();
-  } else if (huartx == &huart2) {
-    return Panel::left_panel();
-  }
-
-  return Panel::left_panel();
-}
-
-void Panel::TimeHandler() {
-  Panel::left_panel().tick_1s_++;
-  Panel::right_panel().tick_1s_++;
-  Panel::StepInternalAnimation();
-}
-
-void Panel::ToggleInternalAnimation() {
-  Panel::SetInternalAnimation(!Panel::internal_animation_enabled_);
-}
-
-void Panel::SetInternalAnimation(bool on) {
-  if (!on && internal_animation_enabled_) {
-    Panel::BlankAll();
-  }
-
-  internal_animation_enabled_ = on;
-}
-
-bool Panel::internal_animation_enabled() { return internal_animation_enabled_; }
-
-void Panel::Swap() { swapped_ = !swapped_; }
-
-void Panel::BlankAll() {
-  Panel::left_panel().Blank();
-  Panel::right_panel().Blank();
-}
-
-void Panel::StepAll() {
-  Panel::left_panel().Step();
-  Panel::right_panel().Step();
-}
-
-void Panel::DisableAll() {
-  Panel::left_panel().Disable();
-  Panel::right_panel().Disable();
-}
-
-void Panel::SendColorDataAll() {
-  Panel::left_panel().SendColorData();
-  Panel::right_panel().SendColorData();
-}
-
-void Panel::SendWhiteBalanceToAll(
-    const Panel::WhiteBalanceData& white_balance) {
-  Panel::left_panel().SendWhiteBalance(white_balance);
-  Panel::right_panel().SendWhiteBalance(white_balance);
-}
-
-void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
-  if (state_ < State::kVcc3v3On) {
-    return;
-  }
-
-  std::copy_n(white_balance.begin(), white_balance.size(),
-              white_balance_data_.begin() + 1u);
-  HAL_UART_Transmit_DMA(huartx_, white_balance_data_.data(),
-                        white_balance_data_.size());
-}
-
-Panel& Panel::SetColorData(std::span<const std::uint8_t> data, bool _8bit) {
-  std::uint8_t i{0u};
-  std::transform(data.begin(), data.end(), color_data_.begin() + 1u,
-                 [&](const std::uint8_t& c) -> std::uint8_t {
-                   return static_cast<std::uint8_t>(
-                       (i++ << 4u) | (_8bit ? (c * 15 + 135) >> 8 : c));
-                 });
-
-  return *this;
-}
-
-void Panel::Heartbeat() {
-  if (state_ >= State::kVcc3v3On) {
-    if ((heartbeat_ & 0xF0u) == 0x80u) {
-      HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
-      active_ = true;
-    } else {  // invalid state
-      active_ = false;
-    }
-  }
-}
-
-Panel::State Panel::state() { return state_; }
-
-std::array<std::uint8_t, 2> Panel::GetPanelStates() {
-  return {static_cast<std::uint8_t>(left_panel().state_),
-          static_cast<std::uint8_t>(right_panel().state_)};
-}
-
-Panel::Panel(Side side)
-    :  // NOLINTNEXTLINE
-      gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
-                                        : PANEL_3V3_RIGHT_GPIO_Port),
-      gpio_12v_port_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
-                                        : PANEL_12v_RIGHT_GPIO_Port),
-      huartx_(side == Side::LEFT ? &huart2 : &huart1),
-      side_(side),
-      gpio_3v3_pin_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
-                                       : PANEL_3V3_RIGHT_Pin),
-      gpio_12v_pin_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
-                                       : PANEL_12v_RIGHT_Pin) {}
-
 Panel& Panel::left_panel() {
   static Panel instance(Side::LEFT);
 
@@ -152,46 +31,24 @@ Panel& Panel::right_panel() {
   return instance;
 }
 
-void Panel::StepInternalAnimation() {
-  if (!internal_animation_enabled_) {
-    return;
+Panel& Panel::GetPanel(Side side) {
+  const Side target{static_cast<Side>(static_cast<bool>(side) ^ swapped_)};
+
+  if (target == Side::RIGHT) {
+    return Panel::left_panel();
+  } else {
+    return Panel::right_panel();
+  }
+}
+
+Panel& Panel::GetPanel(const UART_HandleTypeDef* huartx) {
+  if (huartx == &huart1) {
+    return Panel::right_panel();
+  } else if (huartx == &huart2) {
+    return Panel::left_panel();
   }
 
-  static std::uint8_t color{0u};
-  static std::uint8_t phase{0u};
-
-  Panel::ColorData colors{};
-  for (auto i{colors.begin()}; i != colors.end(); i++) {
-    // red
-    if (phase == 0u) {
-      *i = color;
-    }
-
-    // green
-    i++;
-    if (phase == 1u) {
-      *i = color;
-    }
-
-    // blue
-    i++;
-    if (phase == 2u) {
-      *i = color;
-    }
-  }
-
-  Panel::left_panel().SetColorData(colors, false).SendColorData();
-  Panel::right_panel().SetColorData(colors, false).SendColorData();
-
-  color++;
-  if (color == 16u) {
-    color = 0u;
-
-    phase++;
-    if (phase == 3u) {
-      phase = 0u;
-    }
-  }
+  return Panel::left_panel();
 }
 
 void Panel::Step() {
@@ -282,7 +139,33 @@ void Panel::Step() {
   }
 }
 
-void Panel::Blank() { SetColorData(Panel::ColorData{}, true).SendColorData(); }
+void Panel::TimeHandler() {
+  Panel::left_panel().tick_1s_++;
+  Panel::right_panel().tick_1s_++;
+  Panel::StepInternalAnimation();
+}
+
+void Panel::ToggleInternalAnimation() {
+  Panel::SetInternalAnimation(!Panel::internal_animation_enabled_);
+}
+
+void Panel::SetInternalAnimation(bool on) {
+  if (!on && internal_animation_enabled_) {
+    Panel::left_panel().Blank();
+    Panel::right_panel().Blank();
+  }
+
+  internal_animation_enabled_ = on;
+}
+
+bool Panel::internal_animation_enabled() { return internal_animation_enabled_; }
+
+void Panel::Swap() { swapped_ = !swapped_; }
+
+void Panel::Blank() {
+  const Panel::ColorData blank{};
+  SetColorData(blank, true).SendColorData();
+}
 
 void Panel::Disable() {
   HAL_GPIO_WritePin(gpio_12v_port_, gpio_12v_pin_, GPIO_PIN_RESET);
@@ -302,5 +185,87 @@ void Panel::SendColorData() {
     return;
   }
 
-  HAL_UART_Transmit_DMA(huartx_, color_data_.data(), color_data_.size());
+  HAL_UART_Transmit_DMA(huartx_, color_data_.data(),
+                        static_cast<std::uint16_t>(color_data_.size()));
+}
+
+void Panel::SendWhiteBalance(const WhiteBalanceData& white_balance) {
+  if (state_ < State::kVcc3v3On) {
+    return;
+  }
+
+  std::copy_n(white_balance.begin(), white_balance.size(),
+              white_balance_data_.begin() + 1u);
+  HAL_UART_Transmit_DMA(huartx_, white_balance_data_.data(),
+                        static_cast<std::uint16_t>(white_balance_data_.size()));
+}
+
+Panel& Panel::SetColorData(std::ranges::subrange<const std::uint8_t*> data,
+                           bool _8bit) {
+  std::uint8_t i{0u};
+  std::ranges::transform(data.begin(), data.end(), color_data_.begin() + 1u,
+                         [&](const std::uint8_t& c) -> std::uint8_t {
+                           return static_cast<std::uint8_t>(
+                               (i++ << 4u) | (_8bit ? (c * 15 + 135) >> 8 : c));
+                         });
+
+  return *this;
+}
+
+void Panel::Heartbeat() {
+  if (state_ >= State::kVcc3v3On) {
+    if ((heartbeat_ & 0xF0u) == 0x80u) {
+      HAL_UART_Receive_IT(huartx_, &heartbeat_, 1u);
+      active_ = true;
+    } else {  // invalid state
+      active_ = false;
+    }
+  }
+}
+
+Panel::State Panel::state() const { return state_; }
+
+std::array<std::uint8_t, 2> Panel::GetPanelStates() {
+  return {static_cast<std::uint8_t>(left_panel().state_),
+          static_cast<std::uint8_t>(right_panel().state_)};
+}
+
+Panel::Panel(Side side)
+    :  // NOLINTNEXTLINE
+      gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
+                                        : PANEL_3V3_RIGHT_GPIO_Port),
+      gpio_12v_port_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
+                                        : PANEL_12v_RIGHT_GPIO_Port),
+      huartx_(side == Side::LEFT ? &huart2 : &huart1),
+      side_(side),
+      gpio_3v3_pin_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
+                                       : PANEL_3V3_RIGHT_Pin),
+      gpio_12v_pin_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
+                                       : PANEL_12v_RIGHT_Pin) {}
+
+void Panel::StepInternalAnimation() {
+  if (!internal_animation_enabled_) {
+    return;
+  }
+
+  static std::uint8_t color{0u};
+  static std::uint8_t phase{0u};
+
+  Panel::ColorData colors{};
+  for (auto i{colors.begin()}; i != colors.end(); i += 3) {
+    *(i + phase) = color;
+  }
+
+  Panel::left_panel().SetColorData(colors, false).SendColorData();
+  Panel::right_panel().SetColorData(colors, false).SendColorData();
+
+  color++;
+  if (color == 16u) {
+    color = 0u;
+
+    phase++;
+    if (phase == 3u) {
+      phase = 0u;
+    }
+  }
 }

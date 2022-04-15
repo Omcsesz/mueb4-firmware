@@ -11,18 +11,21 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <functional>
 #include <iterator>
+#include <ranges>
 #include <tuple>
+#include <utility>
 
+#include "command.h"
 #include "crc.h"
 #include "e131.h"
 #include "gpio.h"
 #include "i2c.h"
 #include "main.h"
-#include "panel.h"
 #include "tim.h"
 #include "version.h"
 #include "wiznet_callbacs.h"
@@ -40,19 +43,15 @@ namespace {
 // NOLINTNEXTLINE
 const std::uint32_t kMainProgramSize =
     reinterpret_cast<std::uint32_t>(main_program_size) / 4u;
-
-/**
- * Stores network information.
- * Contains MAC address, Source IP, Subnet mask etc.
- */
-wiz_NetInfo net_info{};
-
-void CIpAssign() { Network::Instance().IpAssign(); }
-
-void CIpUpdate() { Network::Instance().IpUpdate(); }
-
-void CIpConflict() { Network::IpConflict(); }
 }  // namespace
+
+extern "C" {
+static void CIpAssign() { Network::Instance().IpAssign(); }
+
+static void CIpUpdate() { Network::Instance().IpUpdate(); }
+
+static void CIpConflict() { Network::Instance().IpConflict(); }
+}
 
 Network &Network::Instance() {
   static Network network;
@@ -64,40 +63,38 @@ void Network::Step() {
   if (wizphy_getphylink() == PHY_LINK_ON) {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_SET);
 
-    uint8_t dhcp_status = DHCP_run();
-    if (dhcp_status == DHCP_FAILED || dhcp_status == DHCP_STOPPED) {
+    if (std::uint8_t dhcp_status = DHCP_run(); dhcp_status != DHCP_IP_ASSIGN &&
+                                               dhcp_status != DHCP_IP_CHANGED &&
+                                               dhcp_status != DHCP_IP_LEASED) {
       HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
-    } else if (dhcp_status == DHCP_IP_ASSIGN ||
-               dhcp_status == DHCP_IP_CHANGED ||
-               dhcp_status == DHCP_IP_LEASED) {
-      HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
-
-      if (getSn_RX_RSR(kCommandSocket) > 0u) {
-        HandleCommandProtocol();
-      }
-
-      if (net_info.ip[2] != 0u && net_info.ip[3] != 0u) {
-        HAL_NVIC_DisableIRQ(TIM14_IRQn);
-        HAL_NVIC_DisableIRQ(TIM16_IRQn);
-        HAL_NVIC_DisableIRQ(TIM17_IRQn);
-
-        if (!art_net_data_mode && getSn_RX_RSR(kE131SyncSocket) > 0u) {
-          HandleE131Packet(kE131SyncSocket);
-        }
-
-        if (!art_net_data_mode && getSn_RX_RSR(kE131Socket) > 0u) {
-          HandleE131Packet(kE131Socket);
-        }
-
-        if (getSn_RX_RSR(kArtNetSocket) > 0u) {
-          HandleArtNetPacket(kArtNetSocket);
-        }
-
-        HAL_NVIC_EnableIRQ(TIM17_IRQn);
-        HAL_NVIC_EnableIRQ(TIM16_IRQn);
-        HAL_NVIC_EnableIRQ(TIM14_IRQn);
-      }
+      return;
     }
+
+    HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
+
+    if (getSn_RX_RSR(kCommandSocket) > 0u) {
+      HandleCommandProtocol();
+    }
+
+    HAL_NVIC_DisableIRQ(TIM14_IRQn);
+    HAL_NVIC_DisableIRQ(TIM16_IRQn);
+    HAL_NVIC_DisableIRQ(TIM17_IRQn);
+
+    if (!art_net_data_mode && getSn_RX_RSR(kE131SyncSocket) > 0u) {
+      HandleE131Packet(kE131SyncSocket);
+    }
+
+    if (!art_net_data_mode && getSn_RX_RSR(kE131Socket) > 0u) {
+      HandleE131Packet(kE131Socket);
+    }
+
+    if (getSn_RX_RSR(kArtNetSocket) > 0u) {
+      HandleArtNetPacket(kArtNetSocket);
+    }
+
+    HAL_NVIC_EnableIRQ(TIM17_IRQn);
+    HAL_NVIC_EnableIRQ(TIM16_IRQn);
+    HAL_NVIC_EnableIRQ(TIM14_IRQn);
   } else {
     HAL_GPIO_WritePin(LED_JOKER_GPIO_Port, LED_JOKER_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
@@ -105,9 +102,11 @@ void Network::Step() {
   }
 }
 
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "readability-convert-member-functions-to-static"
 void Network::OpenMulticastSocket(const std::uint8_t &socket_number,
                                   const std::uint8_t &third_octet,
-                                  const std::uint8_t &last_octet) {
+                                  const std::uint8_t &last_octet) const {
   std::array<std::uint8_t, 4> multicast_address{239u, 255u, third_octet,
                                                 last_octet};
   std::array<std::uint8_t, 6> multicast_hardware_address{
@@ -123,30 +122,27 @@ void Network::OpenMulticastSocket(const std::uint8_t &socket_number,
   socket(socket_number, Sn_MR_UDP, ACN_SDT_MULTICAST_PORT,
          SF_MULTI_ENABLE | SF_BROAD_BLOCK);
 }
+#pragma clang diagnostic pop
 
 void Network::UpdateIp() {
-  wizchip_getnetinfo(&net_info);
+  wizchip_getnetinfo(&wiz_net_info_);
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_SET);
 
-  std::uint8_t level_number = 18u - net_info.ip[2];
-  std::uint8_t room_number = net_info.ip[3] - 5u;
+  std::uint8_t level_number = 18u - wiz_net_info_.ip[2];
+  std::uint8_t room_number = wiz_net_info_.ip[3] - 5u;
 
   dmx_buffer_offset_ = (level_number * 192u + room_number * 24u) % 504u;
 
   universe_number_ = ((level_number * 8u + room_number) / 21u) + 1u;
   OpenMulticastSocket(kE131Socket, 0u, universe_number_);
 
-  art_poll_reply_.ip_address = std::to_array(net_info.ip);
+  art_poll_reply_.ip_address = std::to_array(wiz_net_info_.ip);
   art_poll_reply_.bind_ip = art_poll_reply_.ip_address;
-  boost::endian::store_little_u32(
-      broadcast_ip_address_.data(),
-      (*(std::uint32_t *)net_info.ip & *(std::uint32_t *)net_info.sn) |
-          ~*(std::uint32_t *)net_info.sn);
 
   art_poll_reply_.sw_in[0] = universe_number_;
 
   sendto(kArtNetSocket, (std::uint8_t *)&art_poll_reply_, sizeof(ArtPollReply),
-         (std::uint8_t *)broadcast_ip_address_.data(), kArtNetPort);
+         const_cast<std::uint8_t *>(broadcast_ip_address_.data()), kArtNetPort);
 }
 
 void Network::IpAssign() {
@@ -161,10 +157,13 @@ void Network::IpUpdate() {
 
 void Network::SyncTimedOut() { synced_ = false; }
 
-void Network::IpConflict() {
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "readability-convert-member-functions-to-static"
+void Network::IpConflict() const {
   default_ip_conflict();
   HAL_GPIO_WritePin(LED_DHCP_GPIO_Port, LED_DHCP_Pin, GPIO_PIN_RESET);
 }
+#pragma clang diagnostic pop
 
 void Network::StreamTerminated() {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_RESET);
@@ -194,7 +193,8 @@ void Network::StreamTerminated() {
   htim17.Instance->EGR = TIM_EGR_UG;
   CLEAR_BIT(htim17.Instance->SR, TIM_SR_UIF);
 
-  Panel::BlankAll();
+  left_panel.Blank();
+  right_panel.Blank();
 }
 
 Network::Network() {
@@ -226,9 +226,9 @@ Network::Network() {
   // Gets MAC address from EEPROM.
   // The device uses Microchip 24AA02E48T-I/OT EEPROM
   HAL_I2C_Mem_Read(&hi2c2, kEepromAddress, kEui48MacStartAddress,
-                   I2C_MEMADD_SIZE_8BIT, net_info.mac, 6u, HAL_MAX_DELAY);
-  setSHAR(net_info.mac);
-  art_poll_reply_.mac = std::to_array(net_info.mac);
+                   I2C_MEMADD_SIZE_8BIT, wiz_net_info_.mac, 6u, HAL_MAX_DELAY);
+  setSHAR(wiz_net_info_.mac);
+  art_poll_reply_.mac = std::to_array(wiz_net_info_.mac);
 
   // Set all capable, Auto-negotiation enabled
   wiz_PhyConf_t phyconf{PHY_CONFBY_SW, PHY_MODE_AUTONEGO};
@@ -242,18 +242,19 @@ Network::Network() {
 }
 
 auto Network::CheckIpAddress(const std::uint8_t &socket_number) {
-  struct _ {
+  struct Return {
     std::int32_t size{0u};
     std::array<std::uint8_t, 1472u> buffer{};
     std::array<std::uint8_t, 4u> server_address{};
     std::uint16_t server_port{0u};
-  } ret;
+  };
+  Return ret;
 
   ret.size = recvfrom(socket_number, ret.buffer.data(),
                       static_cast<std::uint16_t>(ret.buffer.size()),
                       ret.server_address.data(), &ret.server_port);
   if (ret.size < 0 ||
-      (!std::equal(std::begin(net_info.gw), std::end(net_info.gw),
+      (!std::equal(std::begin(wiz_net_info_.gw), std::end(wiz_net_info_.gw),
                    ret.server_address.begin()) &&
        ret.server_address[2] != 0u)) {
     return ret;
@@ -262,18 +263,24 @@ auto Network::CheckIpAddress(const std::uint8_t &socket_number) {
   return ret;
 }
 
-void Network::SetPanelColorData(std::span<const std::uint8_t> data) {
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "readability-convert-member-functions-to-static"
+void Network::SetPanelColorData(
+    const std::array<std::uint8_t, 512u> &dmx_data) const {
   HAL_GPIO_WritePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin, GPIO_PIN_SET);
   Panel::SetInternalAnimation(false);
 
   Panel::GetPanel(Panel::Side::LEFT)
-      .SetColorData(data.subspan(dmx_buffer_offset_, Panel::kColorDataSize),
+      .SetColorData(std::views::counted(dmx_data.cbegin() + dmx_buffer_offset_,
+                                        Panel::kColorDataSize),
                     true);
   Panel::GetPanel(Panel::Side::RIGHT)
-      .SetColorData(data.subspan(dmx_buffer_offset_ + Panel::kColorDataSize,
-                                 Panel::kColorDataSize),
+      .SetColorData(std::views::counted(dmx_data.cbegin() + dmx_buffer_offset_ +
+                                            Panel::kColorDataSize,
+                                        Panel::kColorDataSize),
                     true);
 }
+#pragma clang diagnostic pop
 
 void Network::HandleE131Packet(const std::uint8_t &socket_number) {
   const auto [size, buffer, server_address,
@@ -282,7 +289,7 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
     return;
   }
 
-  const auto root_layer = (RootLayer *)buffer.data();
+  const auto root_layer{reinterpret_cast<const RootLayer *>(buffer.data())};
   if (root_layer->preamble_size != 0x0010u ||
       root_layer->post_amble_size != 0x0000u ||
       root_layer->acn_packet_identifier != kAcnPacketIdentifier) {
@@ -290,15 +297,17 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
   }
 
   if (root_layer->vector == VECTOR_ROOT_E131_DATA) {
-    const auto e131DataPacket = (E131DataPacket *)buffer.data();
+    const auto e131DataPacket{
+        reinterpret_cast<const E131DataPacket *>(buffer.data())};
 
     const bool stream_terminated =
         e131DataPacket->framing_layer.options & 0x40u;
     const bool force_synchronization =
         e131DataPacket->framing_layer.options & 0x20u;
-    const auto sequence_number =
-        e131DataPacket->framing_layer.sequence_number - data_sequence_number_;
-    if (e131DataPacket->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
+    if (const auto sequence_number =
+            e131DataPacket->framing_layer.sequence_number -
+            data_sequence_number_;
+        e131DataPacket->framing_layer.vector != VECTOR_E131_DATA_PACKET ||
         (data_sequence_number_ > 0u && sequence_number <= 0 &&
          sequence_number > -20) ||
         e131DataPacket->framing_layer.universe == 0u ||
@@ -341,7 +350,6 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
       const auto highByte = static_cast<std::uint8_t>(
           (e131DataPacket->framing_layer.synchronization_address & 0xFF00u) >>
           8u);
-
       if (highByte != 0u || lowByte != universe_number_) {
         OpenMulticastSocket(kE131SyncSocket, highByte, lowByte);
       }
@@ -355,11 +363,11 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
     synchronization_address_ =
         e131DataPacket->framing_layer.synchronization_address;
 
-    SetPanelColorData({e131DataPacket->dmp_layer.property_values.begin(),
-                       e131DataPacket->dmp_layer.property_values.size()});
+    SetPanelColorData(e131DataPacket->dmp_layer.property_values);
 
     if (synchronization_address_ == 0u) {
-      Panel::SendColorDataAll();
+      left_panel.SendColorData();
+      right_panel.SendColorData();
     }
 
     HAL_TIM_Base_Stop_IT(&htim16);
@@ -368,11 +376,13 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
     CLEAR_BIT(htim16.Instance->SR, TIM_SR_UIF);
     HAL_TIM_Base_Start_IT(&htim16);
   } else if (root_layer->vector == VECTOR_ROOT_E131_EXTENDED) {
-    const auto e131SyncPacket = (E131SyncPacket *)buffer.data();
+    const auto e131SyncPacket{
+        reinterpret_cast<const E131SyncPacket *>(buffer.data())};
 
-    const auto sequence_number =
-        e131SyncPacket->framing_layer.sequence_number - sync_sequence_number_;
-    if (e131SyncPacket->framing_layer.vector !=
+    if (const auto sequence_number =
+            e131SyncPacket->framing_layer.sequence_number -
+            sync_sequence_number_;
+        e131SyncPacket->framing_layer.vector !=
             VECTOR_E131_EXTENDED_SYNCHRONIZATION ||
         (sync_sequence_number_ > 0u && sequence_number <= 0 &&
          sequence_number > -20) ||
@@ -383,7 +393,8 @@ void Network::HandleE131Packet(const std::uint8_t &socket_number) {
     }
     sync_sequence_number_ = e131SyncPacket->framing_layer.sequence_number;
 
-    Panel::SendColorDataAll();
+    left_panel.SendColorData();
+    right_panel.SendColorData();
     synced_ = true;
 
     HAL_TIM_Base_Stop_IT(&htim17);
@@ -401,8 +412,7 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
     return;
   }
 
-  const auto packet = (ArtNetHeader *)buffer.data();
-
+  const auto packet{reinterpret_cast<const ArtNetHeader *>(buffer.data())};
   if (packet->art_id_op_code.id != kArtNetId || packet->prot_ver != 14u) {
     return;
   }
@@ -410,7 +420,8 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
   switch (packet->art_id_op_code.op_code) {
     case kOpPoll: {
       sendto(kArtNetSocket, (std::uint8_t *)&art_poll_reply_,
-             sizeof(ArtPollReply), (std::uint8_t *)broadcast_ip_address_.data(),
+             sizeof(ArtPollReply),
+             const_cast<std::uint8_t *>(broadcast_ip_address_.data()),
              kArtNetPort);
       break;
     }
@@ -420,10 +431,11 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
         StreamTerminated();
       }
 
-      const auto art_dmx = (ArtDmx *)buffer.data();
+      const auto art_dmx{reinterpret_cast<const ArtDmx *>(buffer.data())};
       if (art_dmx->sequence != 0u) {
-        const auto sequence_number = art_dmx->sequence - data_sequence_number_;
-        if (sequence_number <= 0 && sequence_number > -20) {
+        if (const auto sequence_number =
+                art_dmx->sequence - data_sequence_number_;
+            sequence_number <= 0 && sequence_number > -20) {
           return;
         }
 
@@ -443,7 +455,8 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       SetPanelColorData(art_dmx->data);
 
       if (!synced_) {
-        Panel::SendColorDataAll();
+        left_panel.SendColorData();
+        right_panel.SendColorData();
       }
 
       HAL_TIM_Base_Stop_IT(&htim16);
@@ -464,7 +477,8 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       }
 
       synced_ = true;
-      Panel::SendColorDataAll();
+      left_panel.SendColorData();
+      right_panel.SendColorData();
 
       HAL_TIM_Base_Stop_IT(&htim14);
       HAL_NVIC_ClearPendingIRQ(TIM14_IRQn);
@@ -473,14 +487,20 @@ void Network::HandleArtNetPacket(const std::uint8_t &socket_number) {
       HAL_TIM_Base_Start_IT(&htim14);
       break;
     }
+    default:
+      break;
   }
 }
 
 void Network::HandleCommandProtocol() {
   auto [size, buffer, server_address,
         server_port]{CheckIpAddress(kCommandSocket)};
-  // Handle too small and incorrect packages
-  if (buffer[0] != 'S' || buffer[1] != 'E' || buffer[2] != 'M' || size < 4) {
+  if (size <= 0) {
+    return;
+  }
+
+  const auto command = reinterpret_cast<CommandHeader *>(buffer.data());
+  if (command->id != kCommandId) {
     return;
   }
 
@@ -488,38 +508,39 @@ void Network::HandleCommandProtocol() {
    * only one device
    * Can be used when the device doesn't have an IP address
    */
-  if (buffer[4] == 1u) {
+  if (command->is_broadcast) {
     // Return when the MAC address doesn't match
-    if (!std::equal(std::begin(net_info.mac), std::end(net_info.mac),
+    if (!std::equal(std::begin(wiz_net_info_.mac), std::end(wiz_net_info_.mac),
                     buffer.begin() + 5u)) {
       return;
     }
 
     // If the device's IP address is 0.0.0.0 use broadcast target address
-    if (std::all_of(std::begin(net_info.ip), std::end(net_info.ip),
-                    [](const std::uint8_t &i) { return i == 0u; })) {
+    if (std::ranges::all_of(std::begin(wiz_net_info_.ip),
+                            std::end(wiz_net_info_.ip),
+                            [](const std::uint8_t &i) { return i == 0u; })) {
       server_address.fill(0xFFu);
     }
   }
 
-  switch (static_cast<Command>(buffer[3])) {
+  switch (static_cast<Command>(command->code)) {
       // Mutable commands
     case Command::kDisablePanels:
-      Panel::DisableAll();
+      left_panel.Disable();
+      right_panel.Disable();
       break;
     case Command::kSetPanelsWhiteBalance: {
-      Panel::WhiteBalanceData white_balance{};
-      std::copy_n(buffer.begin() + 11u, white_balance.size(),
-                  white_balance.begin());
-      Panel::SendWhiteBalanceToAll(white_balance);
+      const auto white_balance =
+          reinterpret_cast<WhiteBalance *>(buffer.data());
+      left_panel.SendWhiteBalance(white_balance->data);
+      right_panel.SendWhiteBalance(white_balance->data);
       break;
     }
     case Command::kSetPanelWhiteBalance: {
-      Panel::WhiteBalanceData white_balance{};
-      std::copy_n(buffer.begin() + 12u, white_balance.size(),
-                  white_balance.begin());
-      Panel::GetPanel(static_cast<Panel::Side>(buffer[11]))
-          .SendWhiteBalance(white_balance);
+      const auto white_balance =
+          reinterpret_cast<WhiteBalance *>(buffer.data());
+      Panel::GetPanel(static_cast<Panel::Side>(white_balance->side))
+          .SendWhiteBalance(white_balance->data);
       break;
     }
     case Command::kUseInternalAnimation:
@@ -532,7 +553,8 @@ void Network::HandleCommandProtocol() {
       Panel::Swap();
       break;
     case Command::kBlankPanels:
-      Panel::BlankAll();
+      left_panel.Blank();
+      right_panel.Blank();
       break;
     case Command::kReset:
       HAL_NVIC_SystemReset();
@@ -541,7 +563,7 @@ void Network::HandleCommandProtocol() {
       /* Jump to firmware updater program segment, no going back
        * Modifies PC
        */
-      void *f{firmware_updater_start};
+      const void *f{firmware_updater_start};
       goto *f;
       break;
     }
@@ -558,7 +580,7 @@ void Network::HandleCommandProtocol() {
       break;
     // Immutable commands
     case Command::kPing:
-      sendto(kCommandSocket, (std::uint8_t *)"pong", 4u, server_address.data(),
+      sendto(kCommandSocket, (std::uint8_t *)"pong", 5u, server_address.data(),
              server_port);
       break;
     case Command::kGetStatus: {
@@ -573,33 +595,36 @@ void Network::HandleCommandProtocol() {
           // clang-format on
       };
       const auto status_string_size = std::snprintf(
-          nullptr, 0u, format, mueb_version, net_info.mac[0], net_info.mac[1],
-          net_info.mac[2], net_info.mac[3], net_info.mac[4], net_info.mac[5],
+          nullptr, 0u, format, mueb_version, wiz_net_info_.mac[0],
+          wiz_net_info_.mac[1], wiz_net_info_.mac[2], wiz_net_info_.mac[3],
+          wiz_net_info_.mac[4], wiz_net_info_.mac[5],
           (Panel::internal_animation_enabled() ? "on" : "off"),
           Panel::GetPanel(Panel::Side::LEFT).state(),
           Panel::GetPanel(Panel::Side::RIGHT).state());
       char status_string[status_string_size + 1];
 
-      std::snprintf(status_string, sizeof status_string, format, mueb_version,
-                    net_info.mac[0], net_info.mac[1], net_info.mac[2],
-                    net_info.mac[3], net_info.mac[4], net_info.mac[5],
+      std::snprintf(status_string, sizeof(status_string), format, mueb_version,
+                    wiz_net_info_.mac[0], wiz_net_info_.mac[1],
+                    wiz_net_info_.mac[2], wiz_net_info_.mac[3],
+                    wiz_net_info_.mac[4], wiz_net_info_.mac[5],
                     (Panel::internal_animation_enabled() ? "on" : "off"),
                     Panel::GetPanel(Panel::Side::LEFT).state(),
                     Panel::GetPanel(Panel::Side::RIGHT).state());
 
       sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(status_string),
-             static_cast<std::uint16_t>(status_string_size),
+             static_cast<std::uint16_t>(status_string_size + 1),
              server_address.data(), server_port);
       break;
     }
     case Command::kGetMac: {
       std::array<char, 18u> mac{};
-      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
-             static_cast<std::uint16_t>(std::snprintf(
-                 mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", net_info.mac[0],
-                 net_info.mac[1], net_info.mac[2], net_info.mac[3],
-                 net_info.mac[4], net_info.mac[5])),
-             server_address.data(), server_port);
+      sendto(
+          kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
+          static_cast<std::uint16_t>(std::snprintf(
+              mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", wiz_net_info_.mac[0],
+              wiz_net_info_.mac[1], wiz_net_info_.mac[2], wiz_net_info_.mac[3],
+              wiz_net_info_.mac[4], wiz_net_info_.mac[5]) + 1),
+          server_address.data(), server_port);
       break;
     }
     case Command::kGetFirmwareChecksum: {
@@ -637,6 +662,8 @@ void Network::HandleCommandProtocol() {
       sendto(kCommandSocket, Panel::GetPanelStates().data(), 2,
              server_address.data(), server_port);
       break;
+    default:
+      break;
   }
 }
 
@@ -645,9 +672,10 @@ void Network::FlashFirmwareUpdater() {
 
   // For program and erase operations on the Flash memory (write/erase), the
   // internal RC oscillator (HSI) must be ON.
-  RCC_OscInitTypeDef RCC_OscInitStruct = {
-      .OscillatorType = RCC_OSCILLATORTYPE_HSI, .HSIState = RCC_HSI_ON};
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+  if (RCC_OscInitTypeDef RCC_OscInitStruct = {.OscillatorType =
+                                                  RCC_OSCILLATORTYPE_HSI,
+                                              .HSIState = RCC_HSI_ON};
+      HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     return;
   }
 
@@ -683,11 +711,11 @@ void Network::FlashFirmwareUpdater() {
   }
 
   // FLASH should be previously erased before new programming
-  FLASH_EraseInitTypeDef pEraseInit = {
-      .TypeErase = FLASH_TYPEERASE_PAGES,
-      .PageAddress = reinterpret_cast<std::uint32_t>(firmware_updater_start),
-      .NbPages = reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
   std::uint32_t PageError;
+  FLASH_EraseInitTypeDef pEraseInit{
+      FLASH_TYPEERASE_PAGES,
+      reinterpret_cast<std::uint32_t>(firmware_updater_start),
+      reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     close(kFirmwareUpdaterSocket);
     return;
@@ -699,7 +727,7 @@ void Network::FlashFirmwareUpdater() {
       reinterpret_cast<std::uint32_t>(firmware_updater_start)};
   do {
     // Send dummy packet to generate keep alive
-    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 1u);
+    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 2u);
 
     if (getSn_RX_RSR(kFirmwareUpdaterSocket) == 0u) {
       if (status == SOCK_CLOSE_WAIT) {
@@ -710,7 +738,7 @@ void Network::FlashFirmwareUpdater() {
     }
 
     std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
-    std::uint32_t *flash_page_buffer_p{
+    const auto flash_page_buffer_p{
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
 
     received_size =
@@ -741,7 +769,7 @@ void Network::FlashFirmwareUpdater() {
   } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
            status != SOCK_CLOSE_WAIT);
 
-  send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
+  send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 9u);
   disconnect(kFirmwareUpdaterSocket);
   close(kFirmwareUpdaterSocket);
 

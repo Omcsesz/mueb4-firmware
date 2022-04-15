@@ -4,47 +4,22 @@
  * @author Zsombor Bodnár
  */
 
-#ifndef MATRIX4_MUEB_FW_INC_NETWORK_H_
-#define MATRIX4_MUEB_FW_INC_NETWORK_H_
+#ifndef MUEB4_FIRMWARE_CORE_INC_NETWORK_H_
+#define MUEB4_FIRMWARE_CORE_INC_NETWORK_H_
 
 #include <array>
 #include <cstdint>
-#include <span>
 #include <tuple>
 
 #include "art_net.h"
+#include "panel.h"
+#include "wizchip_conf.h"
 
 /**
  * Manages all network related functionality.
  */
 class Network final {
  public:
-  /// Byte code for network commands.
-  enum class Command {
-    // Mutable commands
-    kDisablePanels = 0x00u,          ///< Disable all panels
-    kSetPanelsWhiteBalance = 0x01u,  ///< Set panels white balance
-    kSetPanelWhiteBalance = 0x02u,   ///< Set one panel white balance
-    kUseInternalAnimation = 0x03u,   ///< Use internal animation
-    kUseExternalAnimation = 0x04u,   ///< Use external animation
-    kSwapPanels = 0x05u,             ///< Swap left and right panels
-    kBlankPanels = 0x06u,            ///< Blank both panels
-    kReset = 0x07u,                  ///< Reboot device
-    kStartFirmwareUpdate = 0x08u,    ///< Start firmware update process
-    kFlashFirmwareUpdater = 0x09u,   ///< Flash firmware updater
-    kSetArtNet = 0x10u,
-    kSetE131 = 0x11u,
-    // Immutable commands
-    kPing = 0x0Au,                 ///< Send back 'pong' response
-    kGetStatus = 0x0Bu,            ///< Get device's status
-    kGetMac = 0x0Cu,               ///< Get device's MAC address
-    kGetFirmwareChecksum = 0x0Du,  ///< Return main program checksum
-    kGetFirmwareUpdaterChecksum =
-        0x0Eu,  ///< Return firmware updater checksum, can be used after
-                ///< kFlashFirmwareUpdater
-    kGetPanelStates = 0x0Fu
-  };
-
   /// Firmware updater port number.
   static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
 
@@ -68,7 +43,7 @@ class Network final {
 
   void SyncTimedOut();
 
-  static void IpConflict();
+  void IpConflict() const;
 
   void StreamTerminated();
 
@@ -96,14 +71,15 @@ class Network final {
   static constexpr std::uint8_t kArtNetSocket{5u};
 
   Network();
+  ~Network() = default;
 
-  static void OpenMulticastSocket(const std::uint8_t &socket_number,
-                                  const std::uint8_t &third_octet,
-                                  const std::uint8_t &last_octet);
+  void OpenMulticastSocket(const std::uint8_t &socket_number,
+                           const std::uint8_t &third_octet,
+                           const std::uint8_t &last_octet) const;
 
-  static auto CheckIpAddress(const std::uint8_t &socket_number);
+  auto CheckIpAddress(const std::uint8_t &socket_number);
 
-  void SetPanelColorData(std::span<const std::uint8_t> data);
+  void SetPanelColorData(const std::array<std::uint8_t, 512u> &dmx_data) const;
 
   /// Handles animation protocol.
   void HandleE131Packet(const std::uint8_t &socket_number);
@@ -118,18 +94,28 @@ class Network final {
 
   void FlashFirmwareUpdater();
 
+  ArtPollReply art_poll_reply_;
+
+  Panel &left_panel{Panel::left_panel()};
+
+  Panel &right_panel{Panel::right_panel()};
+
   /**
    * DHCP RX buffer.
    */
   std::array<std::uint8_t, 576u> dhcp_rx_buffer_{0u};
 
-  ArtPollReply art_poll_reply_;
+  /**
+   * Stores network information.
+   * Contains MAC address, Source IP, Subnet mask etc.
+   */
+  wiz_NetInfo wiz_net_info_{};
 
   std::array<std::uint8_t, 16u> cid_{0u};
 
   std::array<std::uint8_t, 4u> last_ip_address_{0u};
 
-  std::array<std::uint8_t, 4u> broadcast_ip_address_{0u};
+  const std::array<std::uint8_t, 4u> broadcast_ip_address_{10u, 6u, 255u, 255u};
 
   std::uint16_t firmware_updater_size_{0u};
 
@@ -152,4 +138,4 @@ class Network final {
   bool art_net_data_mode{false};
 };
 
-#endif  // MATRIX4_MUEB_FW_INC_NETWORK_H_
+#endif  // MUEB4_FIRMWARE_CORE_INC_NETWORK_H_

@@ -1,3 +1,5 @@
+#include "wiznet_callbacs.h"
+
 #include <cstdint>
 
 #include "main.h"

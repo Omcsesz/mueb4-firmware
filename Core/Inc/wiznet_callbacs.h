@@ -1,3 +1,8 @@
+#ifndef MUEB4_FIRMWARE_CORE_INC_WIZNET_CALLBACS_H_
+#define MUEB4_FIRMWARE_CORE_INC_WIZNET_CALLBACS_H_
+
+#include <cstdint>
+
 /// WIZnet critical enter.
 void CrisEn();
 
@@ -27,3 +32,5 @@ void SpiRBurst(std::uint8_t *pData, std::uint16_t Size);
 
 /// Write burst to WIZnet chip through SPI.
 void SpiWBurst(std::uint8_t *pData, std::uint16_t Size);
+
+#endif  // MUEB4_FIRMWARE_CORE_INC_WIZNET_CALLBACS_H_

@@ -34,9 +34,10 @@ extern "C" [[maybe_unused]] void FirmwareUpdater() {
 
   // For program and erase operations on the Flash memory (write/erase), the
   // internal RC oscillator (HSI) must be ON.
-  RCC_OscInitTypeDef RCC_OscInitStruct = {
-      .OscillatorType = RCC_OSCILLATORTYPE_HSI, .HSIState = RCC_HSI_ON};
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+  if (RCC_OscInitTypeDef RCC_OscInitStruct = {.OscillatorType =
+                                                  RCC_OSCILLATORTYPE_HSI,
+                                              .HSIState = RCC_HSI_ON};
+      HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
     HAL_NVIC_SystemReset();
   }
 
@@ -74,10 +75,9 @@ restart_update:
   }
 
   // FLASH should be previously erased before new programming
-  FLASH_EraseInitTypeDef pEraseInit = {
-      .TypeErase = FLASH_TYPEERASE_PAGES,
-      .PageAddress = FLASH_BASE,
-      .NbPages = reinterpret_cast<std::uint32_t>(main_program_pages)};
+  FLASH_EraseInitTypeDef pEraseInit{
+      FLASH_TYPEERASE_PAGES, FLASH_BASE,
+      reinterpret_cast<std::uint32_t>(main_program_pages)};
   std::uint32_t PageError;
   if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     close(Network::kFirmwareUpdaterSocket);
@@ -89,10 +89,10 @@ restart_update:
   std::uint32_t base_address{FLASH_BASE};
   do {
     // Send dummy packet to generate keep alive
-    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 1u);
+    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 2u);
 
     std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
-    std::uint32_t *flash_page_buffer_p{
+    const std::uint32_t *flash_page_buffer_p{
         reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
 
     received_size = recv(Network::kFirmwareUpdaterSocket,
@@ -123,7 +123,7 @@ restart_update:
   } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
            status != SOCK_CLOSE_WAIT);
 
-  send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 8u);
+  send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 9u);
   disconnect(Network::kFirmwareUpdaterSocket);
   close(Network::kFirmwareUpdaterSocket);
 

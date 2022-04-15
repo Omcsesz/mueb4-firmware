@@ -4,12 +4,13 @@
  * @author Zsombor Bodnár
  */
 
-#ifndef MATRIX4_MUEB_FW_INC_PANEL_H_
-#define MATRIX4_MUEB_FW_INC_PANEL_H_
+#ifndef MUEB4_FIRMWARE_CORE_INC_PANEL_H_
+#define MUEB4_FIRMWARE_CORE_INC_PANEL_H_
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <ranges>
 #include <span>
 
 #include "main.h"
@@ -54,6 +55,20 @@ class Panel final {
   Panel& operator=(const Panel&) = delete;
 
   /**
+   * Returns left #Panel instance independently of #swapped_.
+   * @see #LeftPanel
+   * @return Left #Panel instance
+   */
+  static Panel& left_panel();
+
+  /**
+   * Returns right #Panel instance independently of #swapped_.
+   * @see #RightPanel
+   * @return Right #Panel instance
+   */
+  static Panel& right_panel();
+
+  /**
    * This function returns a #Panel instance using #swapped_.
    * Can be used to get the correct panel even if the cables are swapped.
    * @warning You should always use this function if the position of the panel.
@@ -65,7 +80,10 @@ class Panel final {
    */
   static Panel& GetPanel(Side side);
 
-  static Panel& GetPanel(UART_HandleTypeDef* huartx);
+  static Panel& GetPanel(const UART_HandleTypeDef* huartx);
+
+  /// Panel class' loop
+  void Step();
 
   /**
    * Increase #tick_1s_ by 1.
@@ -89,50 +107,6 @@ class Panel final {
    */
   static void Swap();
 
-  static void BlankAll();
-
-  static void StepAll();
-
-  static void DisableAll();
-
-  static void SendColorDataAll();
-
-  static void SendWhiteBalanceToAll(const WhiteBalanceData& white_balance);
-
-  /// Send white balance data to panel.
-  void SendWhiteBalance(const WhiteBalanceData& white_balance);
-
-  Panel& SetColorData(std::span<const std::uint8_t> data, bool _8bit);
-
-  void Heartbeat();
-
-  State state();
-
-  static std::array<std::uint8_t, 2> GetPanelStates();
-
- private:
-  explicit Panel(Side side);
-
-  /**
-   * Returns left #Panel instance independently of #swapped_.
-   * @see #LeftPanel
-   * @return Left #Panel instance
-   */
-  static Panel& left_panel();
-
-  /**
-   * Returns right #Panel instance independently of #swapped_.
-   * @see #RightPanel
-   * @return Right #Panel instance
-   */
-  static Panel& right_panel();
-
-  /// Internal animation's loop
-  static void StepInternalAnimation();
-
-  /// Panel class' loop
-  void Step();
-
   /**
    * Blanks the panel.
    * @see Network#kBlank
@@ -142,6 +116,25 @@ class Panel final {
   void Disable();
 
   void SendColorData();
+
+  /// Send white balance data to panel.
+  void SendWhiteBalance(const WhiteBalanceData& white_balance);
+
+  Panel& SetColorData(std::ranges::subrange<const std::uint8_t*> data,
+                      bool _8bit);
+
+  void Heartbeat();
+
+  State state() const;
+
+  static std::array<std::uint8_t, 2> GetPanelStates();
+
+ private:
+  explicit Panel(Side side);
+  ~Panel() = default;
+
+  /// Internal animation's loop
+  static void StepInternalAnimation();
 
   static std::array<std::uint32_t, 2u> adc_;
 
@@ -182,4 +175,4 @@ class Panel final {
   bool active_{false};
 };
 
-#endif  // MATRIX4_MUEB_FW_INC_PANEL_H_
+#endif  // MUEB4_FIRMWARE_CORE_INC_PANEL_H_

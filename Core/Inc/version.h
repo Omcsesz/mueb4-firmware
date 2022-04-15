@@ -5,15 +5,15 @@
  * @author Zsombor Bodnár
  */
 
-#ifndef MATRIX4_MUEB_FW_INC_VERSION_H_
-#define MATRIX4_MUEB_FW_INC_VERSION_H_
+#ifndef MUEB4_FIRMWARE_CORE_INC_VERSION_H_
+#define MUEB4_FIRMWARE_CORE_INC_VERSION_H_
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
 const char* mueb_version =
 
-    "v3.3.0"
+    "v4.0.0"
 
 #ifdef _COMMIT
     "-" STR(_COMMIT)
@@ -25,4 +25,4 @@ const char* mueb_version =
 
     ;
 
-#endif  // MATRIX4_MUEB_FW_INC_VERSION_H_
+#endif  // MUEB4_FIRMWARE_CORE_INC_VERSION_H_

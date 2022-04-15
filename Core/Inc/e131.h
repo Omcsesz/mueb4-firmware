@@ -12,7 +12,7 @@ constexpr std::uint32_t VECTOR_E131_DATA_PACKET{0x00000002u};
 constexpr std::uint32_t VECTOR_E131_EXTENDED_SYNCHRONIZATION{0x00000001u};
 constexpr std::uint16_t ACN_SDT_MULTICAST_PORT{5568u};
 
-constexpr std::array<std::uint8_t, 12> kAcnPacketIdentifier{
+constexpr std::array<std::uint8_t, 12u> kAcnPacketIdentifier{
     0x41u, 0x53u, 0x43u, 0x2du, 0x45u, 0x31u,
     0x2eu, 0x31u, 0x37u, 0x00u, 0x00u, 0x00u};
 
@@ -63,8 +63,9 @@ struct E131DataPacket {
         address_increment; /* Indicates each property is 1 octet */
     const boost::endian::big_uint16_t
         property_value_count; /* Indicates 1+ the number of slots in packet */
-    const std::array<std::uint8_t, 513>
-        property_values; /* DMX512-A START Code + data */
+    const std::uint8_t start_code;
+    const std::array<std::uint8_t, 512u> /* DMX512-A START Code */
+        property_values;                 /* DMX512-A data */
   } dmp_layer;
 };
 
