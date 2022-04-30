@@ -20,12 +20,6 @@
  */
 class Network final {
  public:
-  /// Firmware updater port number.
-  static constexpr std::uint16_t kFirmwareUpdaterPort{50002u};
-
-  /// Firmware updater Socket number.
-  static constexpr std::uint8_t kFirmwareUpdaterSocket{2u};
-
   Network(const Network &) = delete;
   Network &operator=(const Network &) = delete;
 
@@ -92,8 +86,6 @@ class Network final {
    */
   void HandleCommandProtocol();
 
-  void FlashFirmwareUpdater();
-
   ArtPollReply art_poll_reply_;
 
   Panel &left_panel{Panel::left_panel()};
@@ -116,8 +108,6 @@ class Network final {
   std::array<std::uint8_t, 4u> last_ip_address_{0u};
 
   const std::array<std::uint8_t, 4u> broadcast_ip_address_{10u, 6u, 255u, 255u};
-
-  std::uint16_t firmware_updater_size_{0u};
 
   std::uint16_t dmx_buffer_offset_{0u};
 

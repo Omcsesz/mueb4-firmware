@@ -59,10 +59,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define PRESCALER 45000 - 1
 #define SECOND 1000 - 1
-#define E131_NETWORK_DATA_LOSS_TIMEOUT 2500 - 1
-#define ART_NET_SYNC_LOST 3999
-#define PANEL_12v_LEFT_Pin GPIO_PIN_13
-#define PANEL_12v_LEFT_GPIO_Port GPIOC
+#define PANEL_12V_LEFT_Pin GPIO_PIN_13
+#define PANEL_12V_LEFT_GPIO_Port GPIOC
 #define PANEL_ADC_3V3_LEFT_Pin GPIO_PIN_0
 #define PANEL_ADC_3V3_LEFT_GPIO_Port GPIOA
 #define PANEL_ADC_3V3_RIGHT_Pin GPIO_PIN_1
@@ -73,10 +71,10 @@ void Error_Handler(void);
 #define PANEL_RX_LEFT_GPIO_Port GPIOA
 #define SPI1_NSS_Pin GPIO_PIN_4
 #define SPI1_NSS_GPIO_Port GPIOA
-#define W5500_INTn_Pin GPIO_PIN_0
-#define W5500_INTn_GPIO_Port GPIOB
-#define W5500_RSTn_Pin GPIO_PIN_1
-#define W5500_RSTn_GPIO_Port GPIOB
+#define W5500_INTN_Pin GPIO_PIN_0
+#define W5500_INTN_GPIO_Port GPIOB
+#define W5500_RSTN_Pin GPIO_PIN_1
+#define W5500_RSTN_GPIO_Port GPIOB
 #define USER_INPUT_BUTTON_Pin GPIO_PIN_2
 #define USER_INPUT_BUTTON_GPIO_Port GPIOB
 #define USER_INPUT_BUTTON_EXTI_IRQn EXTI2_3_IRQn
@@ -92,8 +90,8 @@ void Error_Handler(void);
 #define PANEL_TX_RIGHT_GPIO_Port GPIOA
 #define PANEL_RX_RIGHT_Pin GPIO_PIN_10
 #define PANEL_RX_RIGHT_GPIO_Port GPIOA
-#define PANEL_12v_RIGHT_Pin GPIO_PIN_11
-#define PANEL_12v_RIGHT_GPIO_Port GPIOA
+#define PANEL_12V_RIGHT_Pin GPIO_PIN_11
+#define PANEL_12V_RIGHT_GPIO_Port GPIOA
 #define PANEL_3V3_RIGHT_Pin GPIO_PIN_8
 #define PANEL_3V3_RIGHT_GPIO_Port GPIOB
 #define PANEL_3V3_LEFT_Pin GPIO_PIN_9

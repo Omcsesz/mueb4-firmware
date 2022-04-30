@@ -19,17 +19,13 @@ enum class Command {
   kBlankPanels = 0x06u,            ///< Blank both panels
   kReset = 0x07u,                  ///< Reboot device
   kStartFirmwareUpdate = 0x08u,    ///< Start firmware update process
-  kFlashFirmwareUpdater = 0x09u,   ///< Flash firmware updater
-  kSetArtNet = 0x10u,
-  kSetE131 = 0x11u,
+  kSetArtNet = 0x9u,
+  kSetE131 = 0xAu,
   // Immutable commands
-  kPing = 0x0Au,                 ///< Send back 'pong' response
-  kGetStatus = 0x0Bu,            ///< Get device's status
-  kGetMac = 0x0Cu,               ///< Get device's MAC address
-  kGetFirmwareChecksum = 0x0Du,  ///< Return main program checksum
-  kGetFirmwareUpdaterChecksum =
-      0x0Eu,  ///< Return firmware updater checksum, can be used after
-              ///< kFlashFirmwareUpdater
+  kPing = 0x0Bu,                 ///< Send back 'pong' response
+  kGetStatus = 0x0Cu,            ///< Get device's status
+  kGetMac = 0x0Du,               ///< Get device's MAC address
+  kGetFirmwareChecksum = 0x0Eu,  ///< Return main program checksum
   kGetPanelStates = 0x0Fu
 };
 

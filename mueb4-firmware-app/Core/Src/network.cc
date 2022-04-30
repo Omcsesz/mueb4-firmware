@@ -30,22 +30,13 @@
 #include "version.h"
 #include "wiznet_callbacs.h"
 
-///@{
-/// Defined in linker script.
-extern std::uint32_t firmware_updater_start[];
-extern std::uint32_t firmware_updater_pages[];
-extern std::uint32_t main_program_size[];
-extern std::uint32_t flash_end[];
-///@}
-
-namespace {
-/// Stores main program flash size in words.
-// NOLINTNEXTLINE
-const std::uint32_t kMainProgramSize =
-    reinterpret_cast<std::uint32_t>(main_program_size) / 4u;
-}  // namespace
+extern std::uint32_t _siisr_vector[];
+extern std::uint32_t _main_program_size[];
 
 extern "C" {
+std::uint8_t firmware_update_enabler
+    __attribute__((section(".firmware_update_enabler")));
+
 static void CIpAssign() { Network::Instance().IpAssign(); }
 
 static void CIpUpdate() { Network::Instance().IpUpdate(); }
@@ -200,10 +191,10 @@ void Network::StreamTerminated() {
 Network::Network() {
   // -- Do not remove --
   // Hardware reset W5500
-  HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(W5500_RSTN_GPIO_Port, W5500_RSTN_Pin, GPIO_PIN_RESET);
   // RESET should be held low at least 500 us for W5500
   HAL_Delay(1u);
-  HAL_GPIO_WritePin(W5500_RSTn_GPIO_Port, W5500_RSTn_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(W5500_RSTN_GPIO_Port, W5500_RSTN_Pin, GPIO_PIN_SET);
   // RSTn to internal PLOCK (PLL Lock)
   HAL_Delay(1u);
   // -- Do not remove --
@@ -560,16 +551,11 @@ void Network::HandleCommandProtocol() {
       HAL_NVIC_SystemReset();
       break;
     case Command::kStartFirmwareUpdate: {
-      /* Jump to firmware updater program segment, no going back
-       * Modifies PC
-       */
-      const void *f{firmware_updater_start};
-      goto *f;
+      firmware_update_enabler = 0xABu;
+
+      HAL_NVIC_SystemReset();
       break;
     }
-    case Command::kFlashFirmwareUpdater:
-      FlashFirmwareUpdater();
-      break;
     case Command::kSetArtNet:
       art_net_data_mode = true;
       StreamTerminated();
@@ -580,13 +566,13 @@ void Network::HandleCommandProtocol() {
       break;
     // Immutable commands
     case Command::kPing:
-      sendto(kCommandSocket, (std::uint8_t *)"pong", 5u, server_address.data(),
+      sendto(kCommandSocket, (std::uint8_t *)"123g", 5u, server_address.data(),
              server_port);
       break;
     case Command::kGetStatus: {
       const char *format{
           // clang-format off
-        "MUEB FW: %s\n"
+        "ASD FW: %s\n"
         "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
         "Internal animation: %s\n"
         "Left panel state: %#x\n"
@@ -618,13 +604,14 @@ void Network::HandleCommandProtocol() {
     }
     case Command::kGetMac: {
       std::array<char, 18u> mac{};
-      sendto(
-          kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
-          static_cast<std::uint16_t>(std::snprintf(
-              mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x", wiz_net_info_.mac[0],
-              wiz_net_info_.mac[1], wiz_net_info_.mac[2], wiz_net_info_.mac[3],
-              wiz_net_info_.mac[4], wiz_net_info_.mac[5]) + 1),
-          server_address.data(), server_port);
+      sendto(kCommandSocket, reinterpret_cast<std::uint8_t *>(mac.data()),
+             static_cast<std::uint16_t>(
+                 std::snprintf(mac.data(), mac.size(), "%x:%x:%x:%x:%x:%x",
+                               wiz_net_info_.mac[0], wiz_net_info_.mac[1],
+                               wiz_net_info_.mac[2], wiz_net_info_.mac[3],
+                               wiz_net_info_.mac[4], wiz_net_info_.mac[5]) +
+                 1),
+             server_address.data(), server_port);
       break;
     }
     case Command::kGetFirmwareChecksum: {
@@ -632,27 +619,8 @@ void Network::HandleCommandProtocol() {
        * ~, negate(crc XOR 0xFFFFFFFF) for standard CRC32
        */
       auto crc{__REV(~HAL_CRC_Calculate(
-          &hcrc, reinterpret_cast<std::uint32_t *>(FLASH_BASE),
-          kMainProgramSize))};
-
-      sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
-             server_address.data(), server_port);
-      break;
-    }
-    case Command::kGetFirmwareUpdaterChecksum: {
-      if (!firmware_updater_size_) {
-        sendto(kCommandSocket,
-               reinterpret_cast<std::uint8_t *>(&firmware_updater_size_), 1u,
-               server_address.data(), server_port);
-        return;
-      }
-
-      // firmware updater size in words
-      const std::uint16_t firmware_updater_size{
-          static_cast<std::uint16_t>(firmware_updater_size_ / 4u)};
-      auto crc{__REV(~HAL_CRC_Calculate(
-          &hcrc, reinterpret_cast<std::uint32_t *>(firmware_updater_start),
-          firmware_updater_size))};
+          &hcrc, reinterpret_cast<std::uint32_t *>(_siisr_vector),
+          reinterpret_cast<std::uint32_t>(_main_program_size) / 4u))};
 
       sendto(kCommandSocket, (std::uint8_t *)&crc, sizeof(crc),
              server_address.data(), server_port);
@@ -665,116 +633,4 @@ void Network::HandleCommandProtocol() {
     default:
       break;
   }
-}
-
-void Network::FlashFirmwareUpdater() {
-  firmware_updater_size_ = 0;
-
-  // For program and erase operations on the Flash memory (write/erase), the
-  // internal RC oscillator (HSI) must be ON.
-  if (RCC_OscInitTypeDef RCC_OscInitStruct = {.OscillatorType =
-                                                  RCC_OSCILLATORTYPE_HSI,
-                                              .HSIState = RCC_HSI_ON};
-      HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-    return;
-  }
-
-  if (socket(kFirmwareUpdaterSocket, Sn_MR_TCP, kFirmwareUpdaterPort, 0x00u) !=
-      kFirmwareUpdaterSocket) {
-    return;
-  }
-
-  // Enable TCP keep alive
-  setSn_KPALVTR(kFirmwareUpdaterSocket, 1u);
-
-  if (listen(kFirmwareUpdaterSocket) != SOCK_OK) {
-    return;
-  }
-
-  std::uint8_t status;
-  while (true) {
-    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-    if (status == SOCK_ESTABLISHED) {
-      break;
-    } else if (status == SOCK_CLOSED) {
-      close(kFirmwareUpdaterSocket);
-      return;
-    }
-  }
-
-  /* The function HAL_FLASH_Unlock() should be called before to unlock the FLASH
-   * interface
-   */
-  if (HAL_FLASH_Unlock() != HAL_OK) {
-    close(kFirmwareUpdaterSocket);
-    return;
-  }
-
-  // FLASH should be previously erased before new programming
-  std::uint32_t PageError;
-  FLASH_EraseInitTypeDef pEraseInit{
-      FLASH_TYPEERASE_PAGES,
-      reinterpret_cast<std::uint32_t>(firmware_updater_start),
-      reinterpret_cast<std::uint32_t>(firmware_updater_pages)};
-  if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
-    close(kFirmwareUpdaterSocket);
-    return;
-  }
-
-  // Write flash page by page
-  std::int32_t received_size;
-  std::uint32_t base_address{
-      reinterpret_cast<std::uint32_t>(firmware_updater_start)};
-  do {
-    // Send dummy packet to generate keep alive
-    send(Network::kFirmwareUpdaterSocket, (std::uint8_t *)"!", 2u);
-
-    if (getSn_RX_RSR(kFirmwareUpdaterSocket) == 0u) {
-      if (status == SOCK_CLOSE_WAIT) {
-        break;
-      }
-
-      continue;
-    }
-
-    std::array<std::uint8_t, FLASH_PAGE_SIZE> flash_page_buffer{};
-    const auto flash_page_buffer_p{
-        reinterpret_cast<std::uint32_t *>(flash_page_buffer.data())};
-
-    received_size =
-        recv(kFirmwareUpdaterSocket, flash_page_buffer.data(), FLASH_PAGE_SIZE);
-    if (received_size < 0) {
-      return;
-    }
-
-    // Overwrite protection
-    if (base_address + received_size >=
-        reinterpret_cast<std::uint32_t>(flash_end)) {
-      close(kFirmwareUpdaterSocket);
-      return;
-    }
-
-    std::size_t iterations = received_size / 4u;
-    for (std::size_t i{0u}; i < iterations || (iterations == 0 && i < 1); i++) {
-      if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, base_address + i * 4u,
-                            flash_page_buffer_p[i]) != HAL_OK) {
-        close(kFirmwareUpdaterSocket);
-        return;
-      }
-    }
-
-    base_address += received_size;
-    firmware_updater_size_ += received_size;
-    getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
-  } while (getSn_RX_RSR(Network::kFirmwareUpdaterSocket) != 0u ||
-           status != SOCK_CLOSE_WAIT);
-
-  send(kFirmwareUpdaterSocket, (std::uint8_t *)"FLASH_OK", 9u);
-  disconnect(kFirmwareUpdaterSocket);
-  close(kFirmwareUpdaterSocket);
-
-  /* The function HAL_FLASH_Lock() should be called after to lock the FLASH
-   * interface
-   */
-  HAL_FLASH_Lock();
 }

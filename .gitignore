@@ -735,10 +735,8 @@ FodyWeavers.xsd
 
 Debug/
 Release/
-FirmwareUpdater/
-FirmwareUpdaterDebug/
+Release + Boot Debug/
 Drivers/
 Doc/
 .mxproject
 CMakeLists.txt
-boost

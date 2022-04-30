@@ -234,14 +234,14 @@ Panel::Panel(Side side)
     :  // NOLINTNEXTLINE
       gpio_3v3_port_(side == Side::LEFT ? PANEL_3V3_LEFT_GPIO_Port
                                         : PANEL_3V3_RIGHT_GPIO_Port),
-      gpio_12v_port_(side == Side::LEFT ? PANEL_12v_LEFT_GPIO_Port
-                                        : PANEL_12v_RIGHT_GPIO_Port),
+      gpio_12v_port_(side == Side::LEFT ? PANEL_12V_LEFT_GPIO_Port
+                                        : PANEL_12V_RIGHT_GPIO_Port),
       huartx_(side == Side::LEFT ? &huart2 : &huart1),
       side_(side),
       gpio_3v3_pin_(side == Side::LEFT ? PANEL_3V3_LEFT_Pin
                                        : PANEL_3V3_RIGHT_Pin),
-      gpio_12v_pin_(side == Side::LEFT ? PANEL_12v_LEFT_Pin
-                                       : PANEL_12v_RIGHT_Pin) {}
+      gpio_12v_pin_(side == Side::LEFT ? PANEL_12V_LEFT_Pin
+                                       : PANEL_12V_RIGHT_Pin) {}
 
 void Panel::StepInternalAnimation() {
   if (!internal_animation_enabled_) {

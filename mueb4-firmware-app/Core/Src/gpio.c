@@ -54,23 +54,23 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(PANEL_12v_LEFT_GPIO_Port, PANEL_12v_LEFT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(PANEL_12V_LEFT_GPIO_Port, PANEL_12V_LEFT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, SPI1_NSS_Pin|PANEL_12v_RIGHT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SPI1_NSS_Pin|PANEL_12V_RIGHT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, W5500_RSTn_Pin|PANEL_3V3_RIGHT_Pin|PANEL_3V3_LEFT_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOB, W5500_RSTN_Pin|PANEL_3V3_RIGHT_Pin|PANEL_3V3_LEFT_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LED_JOKER_Pin|LED_SERVER_Pin|LED_DHCP_Pin|LED_HEART_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PtPin */
-  GPIO_InitStruct.Pin = PANEL_12v_LEFT_Pin;
+  GPIO_InitStruct.Pin = PANEL_12V_LEFT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PANEL_12v_LEFT_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(PANEL_12V_LEFT_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PC14 PC15 */
   GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_15;
@@ -79,7 +79,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PAPin PAPin */
-  GPIO_InitStruct.Pin = SPI1_NSS_Pin|PANEL_12v_RIGHT_Pin;
+  GPIO_InitStruct.Pin = SPI1_NSS_Pin|PANEL_12V_RIGHT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -87,7 +87,7 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PBPin PB10 PB11 PB3
                            PB4 PB5 PB6 PB7 */
-  GPIO_InitStruct.Pin = W5500_INTn_Pin|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_3
+  GPIO_InitStruct.Pin = W5500_INTN_Pin|GPIO_PIN_10|GPIO_PIN_11|GPIO_PIN_3
                           |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -95,7 +95,7 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PBPin PBPin PBPin PBPin
                            PBPin PBPin PBPin */
-  GPIO_InitStruct.Pin = W5500_RSTn_Pin|LED_JOKER_Pin|LED_SERVER_Pin|LED_DHCP_Pin
+  GPIO_InitStruct.Pin = W5500_RSTN_Pin|LED_JOKER_Pin|LED_SERVER_Pin|LED_DHCP_Pin
                           |LED_HEART_Pin|PANEL_3V3_RIGHT_Pin|PANEL_3V3_LEFT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;

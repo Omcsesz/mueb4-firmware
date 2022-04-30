@@ -1,4 +1,4 @@
 [submodule "ioLibrary_Driver"]
-	path = ioLibrary_Driver
+	path = mueb4-firmware-wiznet/ioLibrary_Driver
 	url = git@github.com:schonherz-matrix/ioLibrary_Driver.git
 	branch = schonherz-matrix
