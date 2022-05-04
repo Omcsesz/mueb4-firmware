@@ -34,7 +34,7 @@ BOOST_STATIC_ASSERT(sizeof(RootLayer) == 38u);
 struct E131DataPacket {
   const RootLayer root_layer;
 
-  const struct FramingLayer {
+  struct FramingLayer {
     const boost::endian::big_uint16_t
         flags_and_length; /* Protocol flags and length */
     const boost::endian::big_uint32_t
@@ -48,9 +48,10 @@ struct E131DataPacket {
     const std::uint8_t sequence_number;         /* Sequence Number */
     const std::uint8_t options;                 /* Options Flags */
     const boost::endian::big_uint16_t universe; /* Universe Number */
-  } framing_layer;
+  };
+  const FramingLayer framing_layer;
 
-  const struct DmpLayer {
+  struct DmpLayer {
     const boost::endian::big_uint16_t
         flags_and_length;      /* Protocol flags and length */
     const std::uint8_t vector; /* Identifies DMP Set Property Message PDU */
@@ -66,7 +67,9 @@ struct E131DataPacket {
     const std::uint8_t start_code;
     const std::array<std::uint8_t, 512u> /* DMX512-A START Code */
         property_values;                 /* DMX512-A data */
-  } dmp_layer;
+  };
+
+  DmpLayer dmp_layer;
 };
 
 BOOST_STATIC_ASSERT(sizeof(E131DataPacket) == sizeof(RootLayer) + 600u);
@@ -74,7 +77,7 @@ BOOST_STATIC_ASSERT(sizeof(E131DataPacket) == sizeof(RootLayer) + 600u);
 struct E131SyncPacket {
   const RootLayer root_layer;
 
-  const struct FramingLayer {
+  struct FramingLayer {
     const boost::endian::big_uint16_t
         flags_and_length; /* Protocol flags and length */
     const boost::endian::big_uint32_t
@@ -83,7 +86,9 @@ struct E131SyncPacket {
     const boost::endian::big_uint16_t
         synchronization_address;                /* Universe Number */
     const boost::endian::big_uint16_t reserved; /* Reserved */
-  } framing_layer;
+  };
+
+  const FramingLayer framing_layer;
 };
 
 BOOST_STATIC_ASSERT(sizeof(E131SyncPacket) == sizeof(RootLayer) + 11u);

@@ -125,7 +125,7 @@ class Panel final {
 
   void Heartbeat();
 
-  State state() const;
+  [[nodiscard]] State state() const;
 
   static std::array<std::uint8_t, 2> GetPanelStates();
 

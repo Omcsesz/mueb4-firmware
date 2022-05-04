@@ -11,7 +11,7 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-const char* mueb_version =
+const char* const mueb_version =
 
     "v4.0.0"
 

@@ -144,8 +144,7 @@ restart_update:
   // FLASH should be previously erased before new programming
   FLASH_EraseInitTypeDef pEraseInit{FLASH_TYPEERASE_PAGES, kBaseAddress,
                                     kPages};
-  std::uint32_t PageError;
-  if (HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
+  if (std::uint32_t PageError; HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     close(kFirmwareUpdaterSocket);
     goto restart_update;
   }

@@ -49,7 +49,7 @@ else ()
 endif ()
 
 include_directories(${includes})
-include_directories(../boost)
+include_directories(../../boost)
 include_directories(../mueb4-firmware-wiznet/ioLibrary_Driver/Ethernet)
 include_directories(../mueb4-firmware-wiznet/ioLibrary_Driver/Internet/DHCP)
 

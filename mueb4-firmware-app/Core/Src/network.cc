@@ -44,6 +44,17 @@ static void CIpUpdate() { Network::Instance().IpUpdate(); }
 static void CIpConflict() { Network::Instance().IpConflict(); }
 }
 
+static const char *const status_format{
+  // clang-format off
+  "ASD FW: %s\n"
+  "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
+  "Internal animation: %s\n"
+  "Left panel state: %#x\n"
+  "Right panel state: %#x\n"
+  "SEM & KSZK forever",
+  // clang-format on
+};
+
 Network &Network::Instance() {
   static Network network;
 
@@ -566,22 +577,12 @@ void Network::HandleCommandProtocol() {
       break;
     // Immutable commands
     case Command::kPing:
-      sendto(kCommandSocket, (std::uint8_t *)"123g", 5u, server_address.data(),
+      sendto(kCommandSocket, (std::uint8_t *)"pong", 5u, server_address.data(),
              server_port);
       break;
     case Command::kGetStatus: {
-      const char *format{
-          // clang-format off
-        "ASD FW: %s\n"
-        "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
-        "Internal animation: %s\n"
-        "Left panel state: %#x\n"
-        "Right panel state: %#x\n"
-        "SEM & KSZK forever",
-          // clang-format on
-      };
       const auto status_string_size = std::snprintf(
-          nullptr, 0u, format, mueb_version, wiz_net_info_.mac[0],
+          nullptr, 0u, status_format, mueb_version, wiz_net_info_.mac[0],
           wiz_net_info_.mac[1], wiz_net_info_.mac[2], wiz_net_info_.mac[3],
           wiz_net_info_.mac[4], wiz_net_info_.mac[5],
           (Panel::internal_animation_enabled() ? "on" : "off"),
@@ -589,7 +590,7 @@ void Network::HandleCommandProtocol() {
           Panel::GetPanel(Panel::Side::RIGHT).state());
       char status_string[status_string_size + 1];
 
-      std::snprintf(status_string, sizeof(status_string), format, mueb_version,
+      std::snprintf(status_string, sizeof(status_string), status_format, mueb_version,
                     wiz_net_info_.mac[0], wiz_net_info_.mac[1],
                     wiz_net_info_.mac[2], wiz_net_info_.mac[3],
                     wiz_net_info_.mac[4], wiz_net_info_.mac[5],
