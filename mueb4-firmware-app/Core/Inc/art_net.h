@@ -66,7 +66,7 @@ encoded into the bottom 4 bits of this field.
 This is used in combination with NetSwitch
 and SwIn[] or SwOut[] to produce the full
 universe address */
-  const boost::endian::big_uint16_t oem{0xffffu}; /* The high byte of the Oem
+  const boost::endian::big_uint16_t oem{0x2BAFu}; /* The high byte of the Oem
 value. The low byte of the Oem value. The Oem word describes the equipment
 vendor and the feature set available. Bit 15 high indicates extended features
 available. Current registered codes are defined in Table 2 */
