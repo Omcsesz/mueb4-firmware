@@ -4,33 +4,37 @@ Firmware for 4th generation MUEB.
 
 ## Prerequisites
 
-[STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html)
+[STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html) 1.9.0+
+
+[Boost](https://www.boost.org/) 1.79.0+, by default outside the repository folder one level up. e.g. "../" or in any location (must be configured in c++ build settings)
 
 ## How to import the project
 
-Open **STM32CubeIDE**
+Open STM32CubeIDE.
 
-Use File->Open projects from file system
+Use File->Open projects from file system.
 
-Specify "Import source"
+Specify "Import source", set to repository root directory(mueb4-firmware).
 
-Select **mueb4-firmware** folder, click Finish
+Select all, click Finish.
 
 ### Download ST drivers
 
-Help->Manage embedded software packages
+Help->Manage embedded software packages.
 
-Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the **1.11.x version**
+Under **STM32F0**, select **STM32Cube MCU Package for STM32F0 Series** with the **1.11.x version**, click install.
 
 ### Generating code
 
-Open **mueb4-firmware.ioc** from **STM32CubeIDE**
+Under **mueb4-firmware-app** and **mueb4-firmware-boot** open the corresponding ***.ioc** file.
 
 Project->Generate code(ALT+K)
 
-**Code generator only generates/updates main.c and the peripheral files not main.cc file**
+#### Note
 
-**Code generator modifies the optimization level to -O3, make sure to discard it!**
+The code generator only generates/updates main.c and the peripheral files not the main.cc file.
+
+The code generator modifies the optimization level to -O3, make sure to discard it!.
 
 ## Important hardware information
 
