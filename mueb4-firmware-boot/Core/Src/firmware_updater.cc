@@ -31,6 +31,7 @@ constexpr std::uint8_t kEepromAddress{0b10100001u};
 
 extern "C" {
 bool firmware_update_enabled{false};
+std::uint8_t firmware_update_timeout{0u};
 
 /**
  * Manages firmware update process.
@@ -123,7 +124,13 @@ restart_update:
   }
 
   std::uint8_t status;
+
+  firmware_update_timeout = 0u;  // Start timeout measurement
   while (true) {
+    if (firmware_update_timeout == 3u) {
+      HAL_NVIC_SystemReset();
+    }
+
     getsockopt(kFirmwareUpdaterSocket, SO_STATUS, &status);
     if (status == SOCK_ESTABLISHED) {
       break;
@@ -144,7 +151,8 @@ restart_update:
   // FLASH should be previously erased before new programming
   FLASH_EraseInitTypeDef pEraseInit{FLASH_TYPEERASE_PAGES, kBaseAddress,
                                     kPages};
-  if (std::uint32_t PageError; HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
+  if (std::uint32_t PageError;
+      HAL_FLASHEx_Erase(&pEraseInit, &PageError) != HAL_OK) {
     close(kFirmwareUpdaterSocket);
     goto restart_update;
   }

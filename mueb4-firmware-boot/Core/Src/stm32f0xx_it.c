@@ -44,6 +44,7 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 extern bool firmware_update_enabled;
+extern uint8_t firmware_update_timeout;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -170,6 +171,7 @@ void TIM6_IRQHandler(void)
   HAL_GPIO_TogglePin(LED_HEART_GPIO_Port, LED_HEART_Pin);
   if (firmware_update_enabled) {
     HAL_GPIO_TogglePin(LED_SERVER_GPIO_Port, LED_SERVER_Pin);
+    firmware_update_timeout++;
   }
 
   DHCP_time_handler();
