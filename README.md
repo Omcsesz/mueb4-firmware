@@ -55,3 +55,10 @@ https://github.com/Wiznet/ioLibrary_Driver
 ### Microchip 24AA02E48T-I/OT
 
 https://www.microchip.com/wwwproducts/en/24AA02E48
+
+## Supported protocols
+
+[sACN, E1.31 2018](https://tsp.esta.org/tsp/documents/docs/ANSI_E1-31-2018.pdf)
+
+[Art-Net](https://www.artisticlicence.com/WebSiteMaster/User Guides/art-net.pdf), Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd.
+
