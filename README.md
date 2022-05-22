@@ -60,5 +60,4 @@ https://www.microchip.com/wwwproducts/en/24AA02E48
 
 [sACN, E1.31 2018](https://tsp.esta.org/tsp/documents/docs/ANSI_E1-31-2018.pdf)
 
-[Art-Net](https://www.artisticlicence.com/WebSiteMaster/User Guides/art-net.pdf), Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd.
-
+[Art-Net](https://www.artisticlicence.com/WebSiteMaster/User%20Guides/art-net.pdf), Art-Net™ Designed by and Copyright Artistic Licence Holdings Ltd.
