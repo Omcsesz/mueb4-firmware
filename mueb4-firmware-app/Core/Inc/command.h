@@ -19,8 +19,8 @@ enum class Command {
   kBlankPanels = 0x06u,            ///< Blank both panels
   kReset = 0x07u,                  ///< Reboot device
   kStartFirmwareUpdate = 0x08u,    ///< Start firmware update process
-  kSetArtNet = 0x9u,
-  kSetE131 = 0xAu,
+  kSetArtNet = 0x09u,
+  kSetE131 = 0x0Au,
   // Immutable commands
   kPing = 0x0Bu,                 ///< Send back 'pong' response
   kGetStatus = 0x0Cu,            ///< Get device's status

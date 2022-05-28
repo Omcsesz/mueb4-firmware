@@ -50,13 +50,13 @@ struct ArtPollReply {
 Node’s IP address. First array entry is most significant byte of address. When
 binding is implemented, bound nodes may share the root node’s IP Address and the
 BindIndex is used to differentiate the nodes */
-  const boost::endian::little_uint16_t port{kArtNetPort}; /* The Port is always
-0x1936 Transmitted low byte first */
-  const boost::endian::big_uint16_t version_info{0x0400}; /* High byte of Node’s
-firmware   revision number. The Controller should only use this field to decide
-if a   firmware update should proceed. The convention is that a higher number is
-a more   recent release of firmware.  Low byte of Node’s firmware revision
-number*/
+  const boost::endian::little_uint16_t port{kArtNetPort};  /* The Port is always
+ 0x1936 Transmitted low byte first */
+  const boost::endian::big_uint16_t version_info{0x0400u}; /* High byte of
+Node’s firmware   revision number. The Controller should only use this field to
+decide if a   firmware update should proceed. The convention is that a higher
+number is a more   recent release of firmware.  Low byte of Node’s firmware
+revision number*/
   const std::uint8_t net_switch{0u}; /* Bits 14-8 of the 15 bit Port-Address are
                       encoded into the bottom 7 bits of this field. This is used
                       in combination with SubSwitch and SwIn[] or SwOut[] to
@@ -151,7 +151,7 @@ both key down   and key up events. However, the Controller   should not assume
 that only one bit position   has changed.   The Remote inputs are used for
 remote   event triggering or cueing.   Bit fields are active high */
   const boost::endian::big_uint24_t spare{0u}; /* Not used, set to zero */
-  const std::uint8_t style{0x00}; /* The Style code defines the equipment style
+  const std::uint8_t style{0u}; /* The Style code defines the equipment style
                    of the device. See Table 4 for current Style
                    codes */
   std::array<std::uint8_t, 6u> mac{0u}; /* MAC Address Hi Byte. Set to zero if
