@@ -58,11 +58,11 @@ class Network final {
   static constexpr std::uint8_t kCommandSocket{1u};
 
   /// Animation socket number.
-  static constexpr std::uint8_t kE131Socket{3u};
+  static constexpr std::uint8_t kE131Socket{2u};
 
-  static constexpr std::uint8_t kE131SyncSocket{4u};
+  static constexpr std::uint8_t kE131SyncSocket{3u};
 
-  static constexpr std::uint8_t kArtNetSocket{5u};
+  static constexpr std::uint8_t kArtNetSocket{4u};
 
   Network();
   ~Network() = default;

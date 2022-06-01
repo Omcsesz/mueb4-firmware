@@ -217,13 +217,13 @@ Network::Network() {
   reg_wizchip_spiburst_cbfunc(SpiRBurst, SpiWBurst);
   reg_dhcp_cbfunc(CIpAssign, CIpUpdate, CIpConflict);
 
-  // DHCP, command protocol, firmware socket, E1.31 data/sync, E1.31 sync,
+  // DHCP, command protocol, E1.31 data/sync, E1.31 sync,
   // Art-Net rx/tx sizes
-  std::array<std::uint8_t, 8u> txsize{1u, 1u, 1u, 1u, 1u, 1u, 0u, 0u};
-  std::array<std::uint8_t, 8u> rxsize{1u, 1u, 4u, 2u, 2u, 2u, 0u, 0u};
+  std::array<std::uint8_t, 8u> tx_size{1u, 1u, 1u, 1u, 1u, 0u, 0u, 0u};
+  std::array<std::uint8_t, 8u> rx_size{1u, 1u, 4u, 4u, 4u, 0u, 0u, 0u};
 
   // This includes soft reset
-  wizchip_init(txsize.data(), rxsize.data());
+  wizchip_init(tx_size.data(), rx_size.data());
 
   // Gets MAC address from EEPROM.
   // The device uses Microchip 24AA02E48T-I/OT EEPROM
