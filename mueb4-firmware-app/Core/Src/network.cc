@@ -45,14 +45,14 @@ static void CIpConflict() { Network::Instance().IpConflict(); }
 }
 
 static const char *const status_format{
-  // clang-format off
-  "ASD FW: %s\n"
+    // clang-format off
+  "MUEB FW: %s\n"
   "MUEB MAC: %x:%x:%x:%x:%x:%x\n"
   "Internal animation: %s\n"
   "Left panel state: %#x\n"
   "Right panel state: %#x\n"
   "SEM & KSZK forever",
-  // clang-format on
+    // clang-format on
 };
 
 Network &Network::Instance() {
@@ -590,8 +590,8 @@ void Network::HandleCommandProtocol() {
           Panel::GetPanel(Panel::Side::RIGHT).state());
       char status_string[status_string_size + 1];
 
-      std::snprintf(status_string, sizeof(status_string), status_format, mueb_version,
-                    wiz_net_info_.mac[0], wiz_net_info_.mac[1],
+      std::snprintf(status_string, sizeof(status_string), status_format,
+                    mueb_version, wiz_net_info_.mac[0], wiz_net_info_.mac[1],
                     wiz_net_info_.mac[2], wiz_net_info_.mac[3],
                     wiz_net_info_.mac[4], wiz_net_info_.mac[5],
                     (Panel::internal_animation_enabled() ? "on" : "off"),
