@@ -34,8 +34,6 @@ Project->Generate code(ALT+K)
 
 The code generator only generates/updates main.c and the peripheral files not the main.cc file.
 
-The code generator modifies the optimization level to -O3, make sure to discard it!
-
 ## Important hardware information
 
 ### Microcontroller
