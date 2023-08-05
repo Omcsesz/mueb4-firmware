@@ -506,14 +506,14 @@ void Network::HandleCommandProtocol() {
     return;
   }
 
-  /* When the 5th byte is set to 1 it means we're sending a broadcast command to
+  /* When the 6th byte is set to 1 it means we're sending a broadcast command to
    * only one device
    * Can be used when the device doesn't have an IP address
    */
   if (command->is_broadcast) {
     // Return when the MAC address doesn't match
     if (!std::equal(std::begin(wiz_net_info_.mac), std::end(wiz_net_info_.mac),
-                    buffer.begin() + 5u)) {
+                    command->mac.cbegin())) {
       return;
     }
 
